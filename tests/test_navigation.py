@@ -17,7 +17,7 @@ SIZE = (640, 360)
 def app():
     pygame.init()
     pygame.display.set_mode(SIZE)
-    cfg = parse_args(["--windowed", "--stars", "3000", "--tour-after", "0"])
+    cfg = parse_args(["--windowed", "--stars", "3000", "--tour-after", "0", "--labels"])
     yield App(cfg, SIZE)
     pygame.quit()
 
@@ -137,3 +137,32 @@ def test_tryb_pokazowy_odwiedza_sceny(app):
     app.cfg.tour_after = 0
     app.input_activity()
     assert {"blackhole", "crab"} <= visited
+
+
+@pytest.fixture(scope="module")
+def quiet_app():
+    """Tryb bez napisów (domyślny)."""
+    pygame.init()
+    pygame.display.set_mode(SIZE)
+    cfg = parse_args(["--windowed", "--stars", "3000", "--tour-after", "0"])
+    return App(cfg, SIZE)
+
+
+def test_bez_napisow_jedno_klikniecie_wlatuje_do_sceny(quiet_app):
+    app = quiet_app
+    cursor = Cursor(SIZE)
+    frames(app, 2, cursor)
+    app.click(screen_pos(app, "sgr_a"))
+    assert app.transition is not None and app.transition["to"] == "blackhole"
+    frames(app, 60, cursor)
+    assert app.current == "blackhole"
+    assert app.selected is not None and app.selected.id == "sgr_a_detail"   # focus z katalogu
+
+
+def test_klawisz_t_przelacza_napisy(quiet_app):
+    app = quiet_app
+    assert app.labels is False
+    app.set_labels(True)
+    assert all(lv.show_text for lv in app.levels.values())
+    app.set_labels(False)
+    assert not any(lv.show_text for lv in app.levels.values())

@@ -54,6 +54,7 @@ class Level:
         self.sprites = {o.id: make_sprite(o) for o in self.objects}
         self.hits: list[tuple[CelestialObject, float, float, float]] = []
         self.selected: CelestialObject | None = None  # ustawiane przez App
+        self.show_text = False                         # napisy pomocnicze (ustawia App)
 
     # --- kamera ---
     def make_camera(self) -> Camera:
@@ -91,7 +92,7 @@ class Level:
             self.hits.append((o, x, y, max(d * 0.28, MIN_HIT_PX)))
 
     def draw_note(self, frame: pygame.Surface, alpha: float) -> None:
-        if self.note and alpha > 0.05:
+        if self.show_text and self.note and alpha > 0.05:
             w, h = frame.get_size()
             text(frame, self.note, max(16, h // 40), scaled(DIM, alpha * 0.8), center=(w // 2, h - h // 22))
 
@@ -140,17 +141,17 @@ class GalaxyLevel(Level):
         # Czarna dziura nie ma sprite'a w draw_objects – poprawiamy jej obszar trafienia.
         self.hits = [(o, x, y, max(bh_d * 0.3, MIN_HIT_PX) if o.kind == "black_hole" else r)
                      for (o, x, y, r) in self.hits]
-        self.draw_markers(frame, alpha, t)
+        if self.show_text:
+            self.draw_markers(frame, alpha, t)
 
     def draw_markers(self, frame, alpha, t):
-        """Stałe znaczniki i podpisy obiektów na mapie – widz od razu wie, co klikać."""
+        """Podpisy obiektów na mapie (tylko w trybie z napisami)."""
         h = frame.get_height()
         for o, x, y, r in self.hits:
             if not o.label or o is self.selected or r > h * 0.12:
                 continue
             col = (255, 220, 140) if o.kind == "system" else (150, 215, 255)
-            ring = int(max(r * 1.5, h * 0.024) * (1 + 0.06 * math.sin(t * 2.2)))
-            pygame.draw.circle(frame, scaled(col, 0.5 * alpha), (int(x), int(y)), ring, 1)
+            ring = int(max(r * 1.5, h * 0.024))
             size = max(16, h // 40)
             crowded = any(other is not o and other.label and math.hypot(ox - x, oy - y) < ring * 3.5
                           for other, ox, oy, _ in self.hits)

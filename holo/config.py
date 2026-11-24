@@ -18,6 +18,7 @@ class Config:
     flip_h: bool = False       # odbicie lewo-prawo (lustro)
     flip_v: bool = False       # odbicie góra-dół
     calibrate: bool = False    # start od ekranu kalibracji odbicia
+    labels: bool = False       # napisy pomocnicze (nazwy, podpowiedzi); domyślnie tylko karty
     tour_after: float = 60.0   # po tylu sekundach bez ruchu startuje tryb pokazowy (0 = wyłączony)
     show_fps: bool = False
     seed: int = 7              # ziarno losowości – ta sama galaktyka przy każdym starcie
@@ -48,6 +49,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--flip-v", action="store_true", help="odbij obraz góra-dół (napisy do góry nogami)")
     p.add_argument("--calibrate", action="store_true",
                    help="zacznij od ekranu kalibracji odbicia (klawisze h / v)")
+    p.add_argument("--labels", action="store_true",
+                   help="pokazuj napisy pomocnicze (nazwy, podpisy na mapie, podpowiedzi); klawisz t")
     p.add_argument("--tour-after", type=float, default=d.tour_after,
                    help="po ilu sekundach bezczynności program sam oprowadza po obiektach (0 = nigdy)")
     p.add_argument("--show-fps", action="store_true")

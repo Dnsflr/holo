@@ -129,23 +129,6 @@ def wrap(msg: str, size: int, width: int) -> list[str]:
     return lines
 
 
-def draw_highlight(surface: pygame.Surface, x: float, y: float, r: float, t: float,
-                   alpha: float, selected: bool) -> None:
-    """Pierścień wokół obiektu: cienki przy najechaniu, pulsujący przy zaznaczeniu."""
-    if alpha <= 0.02 or r > surface.get_height() * 0.12:
-        return  # duży obiekt (np. przybliżona czarna dziura) – pierścień tylko by zasłaniał
-    rr = r * (1.35 + (0.08 * math.sin(t * 4) if selected else 0))
-    p = (int(x), int(y))
-    pygame.draw.circle(surface, scaled(ACCENT, alpha * (1.0 if selected else 0.7)), p, int(rr), 2)
-    if selected:
-        # Cztery "celowniki" na zewnątrz okręgu.
-        for k in range(4):
-            a = t * 0.8 + k * math.pi / 2
-            x1, y1 = x + math.cos(a) * rr * 1.15, y + math.sin(a) * rr * 1.15
-            x2, y2 = x + math.cos(a) * rr * 1.4, y + math.sin(a) * rr * 1.4
-            pygame.draw.line(surface, scaled(ACCENT, alpha), (x1, y1), (x2, y2), 2)
-
-
 def draw_label(surface: pygame.Surface, msg: str, x: float, y: float, r: float, alpha: float,
                sub: str | None = None) -> None:
     """Podpis pod obiektem (przy najechaniu kursorem)."""
@@ -228,7 +211,7 @@ class InfoCard:
             rows.append((line, s_title, ACCENT, 0))
         rows.append((obj.type, s_type, DIM, int(s_type * 0.9)))
         rows.append(("__sep__", 0, None, int(s_type * 0.6)))
-        for label, value in obj.params:
+        for label, value in obj.params[:4]:
             rows.append((label.upper(), s_label, DIM, 0))
             for line in wrap(value, s_value, inner):
                 rows.append((line, s_value, TEXT, 0))
@@ -236,9 +219,6 @@ class InfoCard:
         rows.append(("__sep__", 0, None, int(s_type * 0.6)))
         for line in wrap(obj.description, s_desc, inner):
             rows.append((line, s_desc, (200, 210, 230), 0))
-        if obj.enter:
-            rows[-1] = rows[-1][:3] + (int(s_desc * 0.8),)
-            rows.append(("» Kliknij ponownie, aby wejść", s_desc, (255, 220, 140), 0))
 
         height = pad * 2 + sum(int(sz * 1.12) + gap if t != "__sep__" else gap for t, sz, _, gap in rows)
         img = pygame.Surface((cw, height), 0, 32)
@@ -294,3 +274,57 @@ class InfoCard:
             mid = (ex - (40 if ex > ox else -40), ey)
             pygame.draw.line(surface, col, (sx, oy), mid, 1)
             pygame.draw.line(surface, col, mid, (ex, ey), 1)
+
+
+class Auras:
+    """Subtelne wyróżnienie klikalnych obiektów: miękka, wolno "oddychająca" poświata.
+
+    Spoczynek – delikatne pulsowanie; najechanie kursorem – jaśniej i szerzej;
+    zaznaczenie – stała, średnia jasność. Zmiany są płynne, bez skoków.
+    """
+
+    REST, HOVER, SELECTED = 0.22, 0.85, 0.55
+
+    def __init__(self):
+        self.level: dict[str, float] = {}
+        self.hover_amt: dict[str, float] = {}
+        self.sprite = None
+
+    def _sprite(self):
+        if self.sprite is None:
+            import numpy as np
+            from .sprites import array_to_surface, radial
+            rr, _, _ = radial(160)
+            # Pierścień światła wokół obiektu – środek zostaje ciemny (nie zalewa obiektu).
+            ring = np.exp(-((rr - 0.42) / 0.16) ** 2) * 0.8 + np.exp(-(rr / 0.55) ** 2) * 0.12
+            ring[rr > 1] = 0
+            self.sprite = array_to_surface(np.repeat(ring[..., None], 3, axis=2))
+        return self.sprite
+
+    def draw(self, frame: pygame.Surface, hits, hovered, selected, t: float, dt: float,
+             cursor_alpha: float) -> None:
+        h = frame.get_height()
+        k = min(1.0, dt * 5.0)
+        for o, x, y, r in hits:
+            if r > h * 0.14:
+                continue  # bardzo duży obiekt (np. cała mgławica) – poświata by go zalała
+            phase = (sum(map(ord, o.id)) % 97) / 97 * 2 * math.pi
+            rest = self.REST + 0.10 * math.sin(t * 2.1 + phase)
+            is_hover = o is hovered and cursor_alpha > 0
+            goal = self.HOVER * cursor_alpha if is_hover else (self.SELECTED if o is selected else rest)
+            goal = max(goal, rest)
+            cur = self.level.get(o.id, rest)
+            cur += (goal - cur) * k
+            self.level[o.id] = cur
+            hv = self.hover_amt.get(o.id, 0.0)
+            hv += ((1.0 if is_hover else 0.0) - hv) * k
+            self.hover_amt[o.id] = hv
+
+            d = int(min(r * 2 * (2.3 + 0.7 * hv), h * 0.5))
+            if d < 6 or cur < 0.02:
+                continue
+            col = getattr(o, "color", (1.0, 1.0, 1.0))
+            tint = tuple(int(255 * min(1.0, (0.55 + 0.45 * c) * cur)) for c in col)
+            img = pygame.transform.smoothscale(self._sprite(), (d, d))
+            img.fill(tint, special_flags=pygame.BLEND_MULT)
+            frame.blit(img, (int(x - d / 2), int(y - d / 2)), special_flags=pygame.BLEND_ADD)

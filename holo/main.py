@@ -14,8 +14,8 @@ from .picking import pick
 from .render import StarLayer
 from .scenes.blackhole3d import BlackHoleScene
 from .scenes.crab import CrabScene
-from .ui import (Cursor, InfoCard, draw_breadcrumb, draw_calibration, draw_highlight, draw_hints,
-                 draw_label, text)
+from .ui import (Auras, Cursor, InfoCard, draw_breadcrumb, draw_calibration, draw_hints, draw_label,
+                 text)
 
 HOME = "galaxy"  # mapa – z niej wchodzi się do scen, do niej się wraca
 TRANSITION_S = 1.6     # czas przejścia między poziomami
@@ -58,6 +58,8 @@ class App:
         self.layer.gas = StarLayer(size, cfg.render_scale * 0.45, bilinear=False)
         self.backdrop = Backdrop(size, rng)
         self.card = InfoCard(size)
+        self.auras = Auras()
+        self.real_t = 0.0   # czas rzeczywisty – poświaty "oddychają" także w pauzie
 
         self.current = HOME
         self.selected: CelestialObject | None = None
@@ -72,6 +74,7 @@ class App:
         self.pressed = False      # lewy przycisk wciśnięty
         self.drag_travel = 0.0    # ile pikseli przejechała mysz od wciśnięcia
         self.last_real_dt = 1 / 30
+        self.set_labels(cfg.labels)
 
     # ------------------------------------------------------------------ akcje
     @property
@@ -88,6 +91,12 @@ class App:
         self.card.show(obj)
         self.cam.fly_to(target=obj.position_at(self.t), zoom=obj.zoom, offset_x=CARD_OFFSET)
 
+    def set_labels(self, on: bool) -> None:
+        """Napisy pomocnicze wł./wył. (karty po kliknięciu są zawsze)."""
+        self.labels = on
+        for lv in self.levels.values():
+            lv.show_text = on
+
     def deselect(self) -> None:
         self.selected = None
         self.level.selected = None
@@ -102,7 +111,8 @@ class App:
         if obj is None:
             if self.selected:
                 self.deselect()
-        elif obj is self.selected and obj.enter:
+        elif obj.enter and (obj is self.selected or not self.labels):
+            # Bez napisów nie ma podpowiedzi "kliknij ponownie" – od razu wlatujemy do sceny.
             self.descend(obj)
         else:
             self.select(obj)
@@ -152,7 +162,9 @@ class App:
         new_cam.fly_to(target=(0.0, 0.0, 0.0), zoom=lv.home_zoom * 0.12, offset_x=0.0)
         new_cam.jump()
         new_cam.fly_to(zoom=lv.home_zoom)
-        self._start_transition(to, then_select=None)
+        # Po przylocie scena sama pokazuje kartę swojego głównego obiektu.
+        focus = lv.find(obj.focus) if obj.focus else None
+        self._start_transition(to, then_select=focus)
 
     def ascend(self) -> None:
         to = HOME
@@ -229,6 +241,7 @@ class App:
         self.t += dt
         self.idle += real_dt
         self.last_real_dt = max(real_dt, 1e-3)
+        self.real_t += real_dt
         self.card.update(real_dt)
 
         tour_after = self.cfg.tour_after
@@ -286,23 +299,22 @@ class App:
         if not self.transition:
             self._draw_selection(frame, cursor)
 
-        crumbs = [self.levels[HOME].title]
-        if self.current != HOME:
-            crumbs.append(self.levels[self.current].title)
-        draw_breadcrumb(frame, crumbs)
-        draw_hints(frame, self.current != HOME or self.selected is not None, cursor.alpha)
+        if self.labels:
+            crumbs = [self.levels[HOME].title]
+            if self.current != HOME:
+                crumbs.append(self.levels[self.current].title)
+            draw_breadcrumb(frame, crumbs)
+            draw_hints(frame, self.current != HOME or self.selected is not None, cursor.alpha)
 
     def _draw_selection(self, frame: pygame.Surface, cursor: Cursor) -> None:
+        self.auras.draw(frame, self.level.hits, self.hovered, self.selected, self.real_t,
+                        self.last_real_dt, cursor.alpha)
         anchor = None
         for o, x, y, r in self.level.hits:
             if o is self.selected:
-                draw_highlight(frame, x, y, r, self.t, 1.0, selected=True)
                 anchor = (x, y, r)
-            elif o is self.hovered:
-                draw_highlight(frame, x, y, r, self.t, cursor.alpha, selected=False)
+            elif o is self.hovered and self.labels:
                 draw_label(frame, o.name, x, y, r, cursor.alpha, sub=o.type)
-        if self.selected is not None and self.hovered is self.selected and self.selected.enter and anchor:
-            draw_label(frame, "Kliknij, aby wejść", anchor[0], anchor[1], anchor[2], cursor.alpha)
         self.card.draw(frame, anchor)
 
 
@@ -392,6 +404,8 @@ def run(cfg: Config) -> None:
                     cfg.glow = not cfg.glow
                 elif k == pygame.K_f:
                     cfg.show_fps = not cfg.show_fps
+                elif k == pygame.K_t:
+                    app.set_labels(not app.labels)
 
         real_dt = clock.tick(cfg.fps) / 1000.0
         if cfg.frames:  # tryb testowy: stały krok czasu

@@ -1,5 +1,5 @@
 {
-  "_info": "Katalog obiektów. Poziomy: galaxy (l, b w stopniach, dist_kpc), blackhole i crab (sceny 3D, pos w jednostkach sceny), solar (a_au, period_y). Rodzaje: black_hole, star, nebula, cluster, system, planet, pulsar. Pole enter = poziom otwierany ponownym kliknięciem.",
+  "_info": "Katalog obiektów. Poziomy: galaxy (l, b w stopniach, dist_kpc), blackhole i crab (sceny 3D, pos w jednostkach sceny), solar (a_au, period_y). Rodzaje: black_hole, star, nebula, cluster, system, planet, pulsar. Pole enter = scena otwierana kliknięciem, focus = obiekt zaznaczany po wejściu do sceny.",
   "objects": [
     {
       "id": "sgr_a",
@@ -29,15 +29,12 @@
         [
           "Gwiazdozbiór",
           "Strzelec"
-        ],
-        [
-          "Pierwsze zdjęcie",
-          "2022, Event Horizon Telescope"
         ]
       ],
-      "description": "Czarna dziura w samym centrum Drogi Mlecznej, 4 mln razy cięższa od Słońca. Kliknij ją jeszcze raz, aby zobaczyć ją z bliska.",
+      "description": "Czarna dziura w samym centrum Drogi Mlecznej – 4 miliony razy cięższa od Słońca.",
       "enter": "blackhole",
-      "label": "Czarna dziura"
+      "label": "Czarna dziura",
+      "focus": "sgr_a_detail"
     },
     {
       "id": "sun",
@@ -70,8 +67,9 @@
           "ok. 230 mln lat"
         ]
       ],
-      "description": "Jesteśmy tutaj – mniej więcej w połowie drogi od centrum do krawędzi galaktyki. Kliknij Słońce jeszcze raz, aby zobaczyć Układ Słoneczny.",
-      "label": "Jesteśmy tutaj"
+      "description": "Jesteśmy tutaj – mniej więcej w połowie drogi od centrum do krawędzi galaktyki.",
+      "label": "Jesteśmy tutaj",
+      "focus": "sun_solar"
     },
     {
       "id": "crab",
@@ -108,8 +106,9 @@
           "ok. 30 na sekundę"
         ]
       ],
-      "description": "W 1054 r. chińscy astronomowie zobaczyli „gwiazdę gościa” widoczną nawet w dzień. To wybuchała gwiazda – została po niej mgławica i wirująca gwiazda neutronowa. Kliknij jeszcze raz, aby zobaczyć ją z bliska.",
-      "label": "Pulsar w Krabie"
+      "description": "W 1054 r. chińscy astronomowie zobaczyli „gwiazdę gościa” widoczną nawet w dzień. Został po niej pulsar i mgławica.",
+      "label": "Pulsar w Krabie",
+      "focus": "crab_pulsar"
     },
     {
       "id": "crab_pulsar",
@@ -141,10 +140,6 @@
         [
           "Gęstość",
           "łyżeczka materii waży miliardy ton"
-        ],
-        [
-          "Zwalnianie",
-          "o ok. 38 nanosekund na dobę"
         ]
       ],
       "description": "Pozostałość jądra gwiazdy, które zapadło się podczas wybuchu. Wzdłuż osi magnetycznej wysyła dwie wiązki promieniowania – gdy omiatają Ziemię, widzimy błyski jak z latarni morskiej."
@@ -182,10 +177,6 @@
         [
           "Wiek",
           "niecałe 1 000 lat"
-        ],
-        [
-          "Gwiazdozbiór",
-          "Byk"
         ]
       ],
       "description": "Rozszerzająca się chmura gazu wyrzuconego w wybuchu. Świeci energią pulsara: niebieskawa poświata w środku to elektrony wirujące w polu magnetycznym, a kolorowe włókna – gaz bogaty w pierwiastki powstałe w gwieździe."
@@ -220,7 +211,7 @@
           "2022, Event Horizon Telescope"
         ]
       ],
-      "description": "Czarny krąg to cień – obszar, z którego nie ucieka światło. Gaz w dysku krąży z prędkością bliską prędkości światła, dlatego strona lecąca w naszą stronę świeci jaśniej (efekt Dopplera). Grawitacja zagina światło tylnej części dysku nad i pod cieniem."
+      "description": "Czarny krąg to cień, z którego nie ucieka światło. Strona dysku lecąca do nas świeci jaśniej (efekt Dopplera), a grawitacja zagina obraz tylnej części dysku nad i pod cieniem."
     },
     {
       "id": "s2",
@@ -238,7 +229,7 @@
         ],
         [
           "Największe zbliżenie",
-          "ok. 120 j.a. (4 razy dalej niż Neptun od Słońca)"
+          "ok. 120 j.a."
         ],
         [
           "Prędkość w peryapsis",

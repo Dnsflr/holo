@@ -42,6 +42,7 @@ class CelestialObject:
     phase: float = 0.0
     ring: bool = False
     label: str | None = None             # stały podpis na mapie (np. „Czarna dziura”)
+    focus: str | None = None             # obiekt zaznaczany po wejściu do sceny (enter)
     mover: Callable[[float], np.ndarray] | None = None  # własny ruch nadany przez scenę (np. S2)
     extra: dict = field(default_factory=dict)
 
@@ -106,7 +107,7 @@ def _from_dict(d: dict) -> CelestialObject:
         params=[tuple(p) for p in d["params"]], description=d["description"],
         pos=np.zeros(3, np.float32), color=color, size=d.get("size", 1.0),
         zoom=d.get("zoom", 4.0), enter=d.get("enter"), ring=d.get("ring", False),
-        label=d.get("label"),
+        label=d.get("label"), focus=d.get("focus"),
     )
     if d["level"] == "galaxy":
         if "pos_kpc" in d:
@@ -130,7 +131,10 @@ def load_catalog(path: Path = DATA_FILE) -> list[CelestialObject]:
     dupes = {i for i in ids if ids.count(i) > 1}
     if dupes:
         raise ValueError(f"Powtórzone id w katalogu: {sorted(dupes)}")
+    by_id = {o.id: o for o in objects}
     for o in objects:
         if o.enter is not None and o.enter not in LEVELS:
             raise ValueError(f"Obiekt {o.id}: pole enter wskazuje nieznany poziom {o.enter!r}")
+        if o.focus is not None and (o.focus not in by_id or by_id[o.focus].level != o.enter):
+            raise ValueError(f"Obiekt {o.id}: focus {o.focus!r} musi być obiektem sceny {o.enter!r}")
     return objects
