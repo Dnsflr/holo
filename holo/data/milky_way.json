@@ -1,0 +1,346 @@
+{
+  "_info": "Katalog obiektów. Poziomy: galaxy (pozycja: l, b w stopniach, dist_kpc), local (l, b, dist_pc – odległość jest skompresowana), solar (a_au, period_y). Rodzaje: black_hole, star, nebula, cluster, system, planet.",
+  "objects": [
+    {
+      "id": "sgr_a", "level": "galaxy", "kind": "black_hole", "pos_kpc": [0, 0, 0],
+      "name": "Sagittarius A*", "type": "Supermasywna czarna dziura",
+      "zoom": 60,
+      "params": [
+        ["Masa", "ok. 4,3 mln mas Słońca"],
+        ["Odległość od Ziemi", "ok. 26 700 lat św."],
+        ["Promień horyzontu", "ok. 12 mln km"],
+        ["Gwiazdozbiór", "Strzelec"],
+        ["Pierwsze zdjęcie", "2022, Event Horizon Telescope"]
+      ],
+      "description": "Czarna dziura w samym centrum Drogi Mlecznej. Jej masę zmierzono, śledząc gwiazdy krążące wokół niej – za to odkrycie przyznano Nagrodę Nobla w 2020 r."
+    },
+    {
+      "id": "sun", "level": "galaxy", "kind": "system", "l": 0, "b": 0, "dist_kpc": 0,
+      "name": "Słońce", "type": "Nasza gwiazda", "temp_k": 5772, "size": 1.0,
+      "zoom": 7, "enter": "local",
+      "params": [
+        ["Odległość od centrum", "ok. 26 000 lat św."],
+        ["Położenie", "Ramię Oriona"],
+        ["Prędkość wokół centrum", "ok. 230 km/s"],
+        ["Jeden obieg galaktyki", "ok. 230 mln lat"]
+      ],
+      "description": "Jesteśmy tutaj – mniej więcej w połowie drogi od centrum do krawędzi galaktyki. Kliknij Słońce jeszcze raz, aby zobaczyć jego okolicę."
+    },
+    {
+      "id": "carina", "level": "galaxy", "kind": "nebula", "l": 287.6, "b": -0.6, "dist_kpc": 2.35,
+      "name": "Mgławica Carina", "type": "Mgławica emisyjna (NGC 3372)", "color": [1.0, 0.45, 0.55], "size": 1.3,
+      "zoom": 7,
+      "params": [
+        ["Odległość", "ok. 7 500–8 500 lat św."],
+        ["Gwiazdozbiór", "Kil"],
+        ["Rodzaj", "obszar narodzin gwiazd (H II)"],
+        ["Najsłynniejsza gwiazda", "Eta Carinae"]
+      ],
+      "description": "Jedna z największych mgławic Drogi Mlecznej, ok. 4 razy większa od Mgławicy Oriona. Kryje Eta Carinae – gwiazdę miliony razy jaśniejszą od Słońca."
+    },
+    {
+      "id": "eagle", "level": "galaxy", "kind": "nebula", "l": 16.95, "b": 0.79, "dist_kpc": 2.0,
+      "name": "Mgławica Orzeł", "type": "Mgławica emisyjna (M16)", "color": [0.55, 0.85, 0.75], "size": 1.0,
+      "zoom": 7,
+      "params": [
+        ["Odległość", "ok. 6 500–7 000 lat św."],
+        ["Gwiazdozbiór", "Wąż"],
+        ["Wiek gromady", "ok. 1–2 mln lat"],
+        ["Słynna z", "Filarów Stworzenia"]
+      ],
+      "description": "Filary Stworzenia sfotografowane przez Teleskop Hubble'a w 1995 r. to jedno z najbardziej znanych zdjęć kosmosu. W ich wnętrzu rodzą się nowe gwiazdy."
+    },
+    {
+      "id": "lagoon", "level": "galaxy", "kind": "nebula", "l": 6.0, "b": -1.2, "dist_kpc": 1.25,
+      "name": "Mgławica Laguna", "type": "Mgławica emisyjna (M8)", "color": [1.0, 0.55, 0.75], "size": 0.9,
+      "zoom": 7,
+      "params": [
+        ["Odległość", "ok. 4 100 lat św."],
+        ["Gwiazdozbiór", "Strzelec"],
+        ["Rozmiar", "ok. 110 × 50 lat św."],
+        ["Widoczność", "gołym okiem, latem"]
+      ],
+      "description": "Wielki obłok gazu i pyłu, w którym powstają gwiazdy. Z Polski widać ją latem nisko nad południowym horyzontem."
+    },
+    {
+      "id": "omega_cen", "level": "galaxy", "kind": "cluster", "l": 309.1, "b": 15.0, "dist_kpc": 5.4,
+      "name": "Omega Centauri", "type": "Gromada kulista", "color": [1.0, 0.9, 0.7], "size": 1.0,
+      "zoom": 7,
+      "params": [
+        ["Odległość", "ok. 17 000 lat św."],
+        ["Liczba gwiazd", "ok. 10 mln"],
+        ["Wiek", "ok. 12 mld lat"],
+        ["Gwiazdozbiór", "Centaur"]
+      ],
+      "description": "Największa gromada kulista Drogi Mlecznej. Być może to jądro dawnej galaktyki karłowatej, którą pochłonęła nasza. W 2024 r. znaleziono w niej ślady czarnej dziury średniej masy."
+    },
+    {
+      "id": "m13", "level": "galaxy", "kind": "cluster", "l": 59.0, "b": 40.9, "dist_kpc": 6.8,
+      "name": "Wielka Gromada w Herkulesie", "type": "Gromada kulista (M13)", "color": [1.0, 0.92, 0.75], "size": 0.8,
+      "zoom": 7,
+      "params": [
+        ["Odległość", "ok. 22 000 lat św."],
+        ["Liczba gwiazd", "kilkaset tysięcy"],
+        ["Wiek", "ok. 12 mld lat"],
+        ["Gwiazdozbiór", "Herkules"]
+      ],
+      "description": "W 1974 r. radioteleskop Arecibo wysłał w jej stronę pierwszą wiadomość do ewentualnych obcych cywilizacji. Dotrze tam za ok. 22 000 lat."
+    },
+    {
+      "id": "cyg_x1", "level": "galaxy", "kind": "star", "l": 71.33, "b": 3.07, "dist_kpc": 2.22,
+      "name": "Cygnus X-1", "type": "Czarna dziura gwiazdowa", "temp_k": 30000, "size": 0.7,
+      "zoom": 7,
+      "params": [
+        ["Masa czarnej dziury", "ok. 21 mas Słońca"],
+        ["Towarzysz", "błękitny nadolbrzym"],
+        ["Odległość", "ok. 7 200 lat św."],
+        ["Gwiazdozbiór", "Łabędź"],
+        ["Odkrycie", "1964 (źródło promieni X)"]
+      ],
+      "description": "Pierwszy obiekt powszechnie uznany za czarną dziurę. Wciąga gaz z sąsiedniej gwiazdy, a rozgrzany gaz świeci w promieniach rentgenowskich."
+    },
+    {
+      "id": "vy_cma", "level": "galaxy", "kind": "star", "l": 239.35, "b": -5.07, "dist_kpc": 1.2,
+      "name": "VY Canis Majoris", "type": "Czerwony hiperolbrzym", "temp_k": 3500, "size": 0.9,
+      "zoom": 7,
+      "params": [
+        ["Promień", "ok. 1 400 promieni Słońca"],
+        ["Masa", "ok. 17 mas Słońca"],
+        ["Temperatura", "ok. 3 500 K"],
+        ["Odległość", "ok. 3 900 lat św."],
+        ["Gwiazdozbiór", "Wielki Pies"]
+      ],
+      "description": "Jedna z największych znanych gwiazd. Postawiona w miejscu Słońca sięgałaby dalej niż orbita Jowisza."
+    },
+
+    {
+      "id": "sun_local", "level": "local", "kind": "system", "l": 0, "b": 0, "dist_pc": 0,
+      "name": "Słońce", "type": "Żółty karzeł (G2V)", "temp_k": 5772, "size": 1.3,
+      "zoom": 4, "enter": "solar",
+      "params": [
+        ["Temperatura powierzchni", "5 772 K"],
+        ["Promień", "696 000 km"],
+        ["Masa", "333 000 mas Ziemi"],
+        ["Wiek", "ok. 4,6 mld lat"]
+      ],
+      "description": "Przeciętna gwiazda, która ma przed sobą jeszcze ok. 5 mld lat życia. Kliknij jeszcze raz, aby zobaczyć Układ Słoneczny."
+    },
+    {
+      "id": "proxima", "level": "local", "kind": "star", "l": 313.94, "b": -1.93, "dist_pc": 1.30,
+      "name": "Proxima Centauri", "type": "Czerwony karzeł (M5,5 V)", "temp_k": 3042, "size": 0.6,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "4,24 lat św."],
+        ["Masa", "0,12 masy Słońca"],
+        ["Promień", "0,15 promienia Słońca"],
+        ["Temperatura", "ok. 3 000 K"]
+      ],
+      "description": "Najbliższa Słońcu gwiazda. Krąży wokół niej planeta Proxima b – w odległości, w której mogłaby istnieć woda w stanie ciekłym."
+    },
+    {
+      "id": "sirius", "level": "local", "kind": "star", "l": 227.23, "b": -8.89, "dist_pc": 2.64,
+      "name": "Syriusz", "type": "Gwiazda ciągu głównego (A1 V)", "temp_k": 9940, "size": 1.0,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "8,6 lat św."],
+        ["Masa", "ok. 2 masy Słońca"],
+        ["Jasność", "ok. 25 razy większa od Słońca"],
+        ["Gwiazdozbiór", "Wielki Pies"]
+      ],
+      "description": "Najjaśniejsza gwiazda nocnego nieba. Ma małego towarzysza – białego karła Syriusza B."
+    },
+    {
+      "id": "vega", "level": "local", "kind": "star", "l": 67.45, "b": 19.24, "dist_pc": 7.68,
+      "name": "Wega", "type": "Gwiazda ciągu głównego (A0 V)", "temp_k": 9600, "size": 0.9,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "25 lat św."],
+        ["Masa", "ok. 2,1 masy Słońca"],
+        ["Jasność", "ok. 40 razy większa od Słońca"],
+        ["Gwiazdozbiór", "Lutnia"]
+      ],
+      "description": "Za ok. 12 000 lat, przez powolny ruch osi Ziemi, stanie się Gwiazdą Polarną. W 1850 r. jako pierwsza gwiazda (poza Słońcem) została sfotografowana."
+    },
+    {
+      "id": "polaris", "level": "local", "kind": "star", "l": 123.28, "b": 26.46, "dist_pc": 133,
+      "name": "Gwiazda Polarna", "type": "Nadolbrzym (F7 Ib), cefeida", "temp_k": 6000, "size": 0.9,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "ok. 430 lat św."],
+        ["Masa", "ok. 5 mas Słońca"],
+        ["Promień", "ok. 38 promieni Słońca"],
+        ["Gwiazdozbiór", "Mała Niedźwiedzica"]
+      ],
+      "description": "Leży prawie dokładnie nad biegunem północnym Ziemi, dlatego od wieków wskazuje żeglarzom północ. To pulsująca gwiazda zmienna."
+    },
+    {
+      "id": "betelgeuse", "level": "local", "kind": "star", "l": 199.79, "b": -8.96, "dist_pc": 168,
+      "name": "Betelgeza", "type": "Czerwony nadolbrzym (M1–2 Ia)", "temp_k": 3600, "size": 1.3,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "ok. 550 lat św."],
+        ["Promień", "ok. 700 promieni Słońca"],
+        ["Masa", "ok. 16–19 mas Słońca"],
+        ["Gwiazdozbiór", "Orion"]
+      ],
+      "description": "Kiedyś wybuchnie jako supernowa – prawdopodobnie za ok. 100 000 lat. W latach 2019–2020 nagle przygasła (tzw. Wielkie Pociemnienie)."
+    },
+    {
+      "id": "rigel", "level": "local", "kind": "star", "l": 209.24, "b": -25.25, "dist_pc": 264,
+      "name": "Rigel", "type": "Błękitny nadolbrzym (B8 Ia)", "temp_k": 12100, "size": 1.2,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "ok. 860 lat św."],
+        ["Masa", "ok. 21 mas Słońca"],
+        ["Jasność", "ok. 120 000 razy większa od Słońca"],
+        ["Gwiazdozbiór", "Orion"]
+      ],
+      "description": "Najjaśniejsza gwiazda Oriona. Gdyby stała tak blisko jak Syriusz, świeciłaby na niebie jaśniej niż Księżyc w pełni."
+    },
+    {
+      "id": "antares", "level": "local", "kind": "star", "l": 351.95, "b": 15.06, "dist_pc": 170,
+      "name": "Antares", "type": "Czerwony nadolbrzym (M1,5 Iab)", "temp_k": 3600, "size": 1.2,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "ok. 550 lat św."],
+        ["Promień", "ok. 680 promieni Słońca"],
+        ["Masa", "ok. 12 mas Słońca"],
+        ["Gwiazdozbiór", "Skorpion"]
+      ],
+      "description": "Jej nazwa oznacza „rywal Marsa” – na niebie ma podobny, czerwony kolor."
+    },
+    {
+      "id": "pleiades", "level": "local", "kind": "cluster", "l": 166.57, "b": -23.52, "dist_pc": 136,
+      "name": "Plejady", "type": "Gromada otwarta (M45)", "color": [0.7, 0.82, 1.0], "size": 1.1,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "ok. 440 lat św."],
+        ["Liczba gwiazd", "ponad 1 000"],
+        ["Wiek", "ok. 100 mln lat"],
+        ["Gwiazdozbiór", "Byk"]
+      ],
+      "description": "Najbardziej znana gromada gwiazd, widoczna gołym okiem jako „Siedem Sióstr”. Gwiazdy w niej są młode i gorące, dlatego niebieskie."
+    },
+    {
+      "id": "m42", "level": "local", "kind": "nebula", "l": 209.01, "b": -19.38, "dist_pc": 412,
+      "name": "Mgławica Oriona", "type": "Mgławica emisyjna (M42)", "color": [1.0, 0.5, 0.6], "size": 1.2,
+      "zoom": 4,
+      "params": [
+        ["Odległość", "ok. 1 340 lat św."],
+        ["Średnica", "ok. 24 lat św."],
+        ["Gwiazdozbiór", "Orion"],
+        ["Widoczność", "gołym okiem, zimą"]
+      ],
+      "description": "Najbliższe duże miejsce narodzin gwiazd. Widać ją gołym okiem jako rozmytą „gwiazdę” w mieczu Oriona."
+    },
+
+    {
+      "id": "sun_solar", "level": "solar", "kind": "star", "a_au": 0, "period_y": 1,
+      "name": "Słońce", "type": "Żółty karzeł (G2V)", "temp_k": 5772, "size": 2.2,
+      "zoom": 3,
+      "params": [
+        ["Temperatura powierzchni", "5 772 K"],
+        ["Temperatura jądra", "ok. 15 mln K"],
+        ["Promień", "109 promieni Ziemi"],
+        ["Udział w masie Układu", "99,86%"]
+      ],
+      "description": "Światło ze Słońca leci do Ziemi ok. 8 minut 20 sekund."
+    },
+    {
+      "id": "mercury", "level": "solar", "kind": "planet", "a_au": 0.387, "period_y": 0.241, "phase": 1.0,
+      "name": "Merkury", "type": "Planeta skalista", "color": [0.72, 0.68, 0.64], "size": 0.38,
+      "zoom": 6,
+      "params": [
+        ["Odległość od Słońca", "58 mln km (0,39 j.a.)"],
+        ["Rok", "88 dni"],
+        ["Promień", "2 440 km"],
+        ["Księżyce", "0"]
+      ],
+      "description": "Najmniejsza i najbliższa Słońcu planeta. W dzień jest tam ok. 430°C, a w nocy ok. –180°C."
+    },
+    {
+      "id": "venus", "level": "solar", "kind": "planet", "a_au": 0.723, "period_y": 0.615, "phase": 3.4,
+      "name": "Wenus", "type": "Planeta skalista", "color": [1.0, 0.85, 0.55], "size": 0.6,
+      "zoom": 6,
+      "params": [
+        ["Odległość od Słońca", "108 mln km (0,72 j.a.)"],
+        ["Rok", "225 dni"],
+        ["Promień", "6 052 km"],
+        ["Temperatura", "ok. 465°C"]
+      ],
+      "description": "Najgorętsza planeta – gęsta atmosfera z dwutlenku węgla zatrzymuje ciepło. Obraca się w przeciwną stronę niż większość planet."
+    },
+    {
+      "id": "earth", "level": "solar", "kind": "planet", "a_au": 1.0, "period_y": 1.0, "phase": 5.2,
+      "name": "Ziemia", "type": "Planeta skalista", "color": [0.35, 0.6, 1.0], "size": 0.62,
+      "zoom": 6,
+      "params": [
+        ["Odległość od Słońca", "150 mln km (1 j.a.)"],
+        ["Rok", "365,25 dni"],
+        ["Promień", "6 371 km"],
+        ["Księżyce", "1"]
+      ],
+      "description": "Jedyne znane miejsce we Wszechświecie, w którym istnieje życie."
+    },
+    {
+      "id": "mars", "level": "solar", "kind": "planet", "a_au": 1.524, "period_y": 1.881, "phase": 0.3,
+      "name": "Mars", "type": "Planeta skalista", "color": [1.0, 0.45, 0.25], "size": 0.45,
+      "zoom": 6,
+      "params": [
+        ["Odległość od Słońca", "228 mln km (1,52 j.a.)"],
+        ["Rok", "687 dni"],
+        ["Promień", "3 390 km"],
+        ["Księżyce", "2 (Fobos, Deimos)"]
+      ],
+      "description": "Czerwona planeta z najwyższym wulkanem Układu Słonecznego – Olympus Mons ma ok. 22 km wysokości."
+    },
+    {
+      "id": "jupiter", "level": "solar", "kind": "planet", "a_au": 5.203, "period_y": 11.86, "phase": 2.2,
+      "name": "Jowisz", "type": "Gazowy olbrzym", "color": [0.95, 0.78, 0.6], "size": 1.25,
+      "zoom": 5,
+      "params": [
+        ["Odległość od Słońca", "778 mln km (5,2 j.a.)"],
+        ["Rok", "11,9 lat"],
+        ["Promień", "69 911 km"],
+        ["Księżyce", "ponad 90"]
+      ],
+      "description": "Największa planeta – zmieściłoby się w nim ponad 1 300 Ziem. Wielka Czerwona Plama to burza większa od Ziemi."
+    },
+    {
+      "id": "saturn", "level": "solar", "kind": "planet", "a_au": 9.537, "period_y": 29.45, "phase": 4.0, "ring": true,
+      "name": "Saturn", "type": "Gazowy olbrzym", "color": [1.0, 0.88, 0.6], "size": 1.1,
+      "zoom": 5,
+      "params": [
+        ["Odległość od Słońca", "1,43 mld km (9,5 j.a.)"],
+        ["Rok", "29,5 lat"],
+        ["Promień", "58 232 km"],
+        ["Księżyce", "ponad 270"]
+      ],
+      "description": "Słynie z pierścieni z lodu i skał. Ma tak małą gęstość, że w ogromnej wannie z wodą by pływał."
+    },
+    {
+      "id": "uranus", "level": "solar", "kind": "planet", "a_au": 19.19, "period_y": 84.0, "phase": 0.8,
+      "name": "Uran", "type": "Lodowy olbrzym", "color": [0.6, 0.92, 0.95], "size": 0.85,
+      "zoom": 5,
+      "params": [
+        ["Odległość od Słońca", "2,9 mld km (19,2 j.a.)"],
+        ["Rok", "84 lata"],
+        ["Promień", "25 362 km"],
+        ["Nachylenie osi", "98° – obraca się „na boku”"]
+      ],
+      "description": "Krąży wokół Słońca przewrócony na bok, więc na biegunach przez 42 lata trwa dzień, a potem 42 lata noc."
+    },
+    {
+      "id": "neptune", "level": "solar", "kind": "planet", "a_au": 30.07, "period_y": 164.8, "phase": 2.9,
+      "name": "Neptun", "type": "Lodowy olbrzym", "color": [0.35, 0.5, 1.0], "size": 0.82,
+      "zoom": 5,
+      "params": [
+        ["Odległość od Słońca", "4,5 mld km (30 j.a.)"],
+        ["Rok", "165 lat"],
+        ["Promień", "24 622 km"],
+        ["Wiatry", "do ok. 2 000 km/h"]
+      ],
+      "description": "Najdalsza planeta. Odkryto ją w 1846 r. najpierw na papierze – z obliczeń – a dopiero potem przez teleskop."
+    }
+  ]
+}

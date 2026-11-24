@@ -1,28 +1,59 @@
 """Poziomy nawigacji: Droga Mleczna → Okolica Słońca → Układ Słoneczny.
 
 Każdy poziom ma własną skalę (view_radius), domyślne ustawienie kamery
-i rysuje się w dwóch krokach: punkty do warstwy gwiazd + sprite'y na klatce.
+i rysuje się w dwóch krokach: punkty do warstwy gwiazd (draw_points)
+oraz sprite'y obiektów na pełnej klatce (draw_sprites). Przy rysowaniu
+poziom zapamiętuje, gdzie na ekranie wylądował każdy obiekt (hits) –
+z tego korzysta wybieranie myszą.
 """
 from __future__ import annotations
 
 import math
+import zlib
 
 import numpy as np
 import pygame
 
 from .blackhole import BlackHole
 from .camera import Camera
+from .catalog import CelestialObject, local_to_scene, solar_orbit_radius, temp_to_rgb
 from .galaxy import MilkyWay
 from .render import StarLayer
-from .sprites import blit_scaled, radial_glow
+from .sprites import (blit_scaled, cluster_sprite, nebula_sprite, planet_sprite, radial_glow,
+                      star_sprite, sun_sprite)
+from .ui import DIM, scaled, text
+
+MIN_HIT_PX = 16  # najmniejszy promień "trafienia" kliknięciem
+
+
+def make_sprite(o: CelestialObject) -> pygame.Surface | None:
+    seed = zlib.crc32(o.id.encode())
+    if o.kind in ("star", "system"):
+        return star_sprite(128, o.color)
+    if o.kind == "nebula":
+        return nebula_sprite(160, o.color, seed)
+    if o.kind == "cluster":
+        return cluster_sprite(128, o.color, seed, globular="kulista" in o.type.lower())
+    if o.kind == "planet":
+        return planet_sprite(128, o.color, o.ring)
+    return None  # czarną dziurę rysuje poziom
 
 
 class Level:
+    key = ""
     title = ""
+    note = ""            # np. informacja o nieproporcjonalnej skali
     view_radius = 1.0
     home_tilt = 50.0
     home_zoom = 1.0
+    sprite_scale = 0.04  # rozmiar sprite'a jako ułamek krótszego boku ekranu
 
+    def __init__(self, catalog: list[CelestialObject]):
+        self.objects = [o for o in catalog if o.level == self.key]
+        self.sprites = {o.id: make_sprite(o) for o in self.objects}
+        self.hits: list[tuple[CelestialObject, float, float, float]] = []
+
+    # --- kamera ---
     def make_camera(self) -> Camera:
         cam = Camera(self.view_radius, self.home_tilt, yaw=self.home_yaw())
         cam.zoom = cam.goal_zoom = self.home_zoom
@@ -31,19 +62,47 @@ class Level:
     def home_yaw(self) -> float:
         return 0.0
 
+    def find(self, obj_id: str) -> CelestialObject | None:
+        return next((o for o in self.objects if o.id == obj_id), None)
+
+    # --- rysowanie ---
     def draw_points(self, layer: StarLayer, cam: Camera, size, t: float, alpha: float) -> None:
         pass
 
     def draw_sprites(self, frame: pygame.Surface, cam: Camera, t: float, alpha: float) -> None:
-        pass
+        self.draw_objects(frame, cam, t, alpha)
+
+    def sprite_diameter(self, o: CelestialObject, cam: Camera, size, f: float) -> float:
+        return min(size) * self.sprite_scale * o.size * f * cam.zoom ** 0.5
+
+    def draw_objects(self, frame, cam, t, alpha) -> None:
+        size = frame.get_size()
+        self.hits = []
+        for o in self.objects:
+            x, y, f, vis = cam.project_one(o.position_at(t), size)
+            if not vis:
+                continue
+            sprite = self.sprites.get(o.id)
+            d = self.sprite_diameter(o, cam, size, f)
+            if sprite is not None:
+                blit_scaled(frame, sprite, (x, y), d, alpha)
+            self.hits.append((o, x, y, max(d * 0.28, MIN_HIT_PX)))
+
+    def draw_note(self, frame: pygame.Surface, alpha: float) -> None:
+        if self.note and alpha > 0.05:
+            w, h = frame.get_size()
+            text(frame, self.note, max(16, h // 40), scaled(DIM, alpha * 0.8), center=(w // 2, h - h // 22))
 
 
 class GalaxyLevel(Level):
+    key = "galaxy"
     title = "Droga Mleczna"
     view_radius = 16.0  # kpc
     home_tilt = 52.0
+    sprite_scale = 0.035
 
-    def __init__(self, cfg, rng: np.random.Generator):
+    def __init__(self, catalog, cfg, rng: np.random.Generator):
+        super().__init__(catalog)
         self.galaxy = MilkyWay(cfg.stars, rng)
         self.core = radial_glow(256, (1.0, 0.82, 0.55), core=0.12, halo=0.45, core_w=0.85, halo_w=0.3)
         self.black_hole = BlackHole()
@@ -58,15 +117,133 @@ class GalaxyLevel(Level):
         cols = g.colors_at(t)[vis] * (alpha * np.minimum(f[vis], 2.0))[:, None]
         layer.add(sx[vis], sy[vis], cols)
 
+    def sprite_diameter(self, o, cam, size, f):
+        k = 1.8 if o.kind in ("nebula", "cluster") else 1.0
+        return min(min(size) * self.sprite_scale * k * o.size * f * cam.zoom ** 0.5, 0.35 * min(size))
+
     def draw_sprites(self, frame, cam, t, alpha):
         size = frame.get_size()
         cx, cy, f, vis = cam.project_one((0.0, 0.0, 0.0), size)
-        if not vis:
-            return
-        # Poświata jądra gaśnie przy dużym przybliżeniu, żeby nie zalać czarnej dziury.
-        core_k = min(1.0, max(0.0, 1.4 - cam.zoom / 8))
-        d = 2 * 2.2 * cam.scale_px(size) * f
-        blit_scaled(frame, self.core, (cx, cy), d, alpha * core_k * (0.85 + 0.08 * math.sin(t * 1.3)))
-        # Sgr A*: na widoku całej galaktyki mały punkt, po przybliżeniu pełny obraz.
-        bh_d = min(9.0 * cam.zoom * f, 0.75 * min(size))
-        self.black_hole.draw(frame, (cx, cy), bh_d, t, alpha * min(1.0, 0.35 + cam.zoom / 12))
+        bh_d = 0.0
+        if vis:
+            # Poświata jądra gaśnie przy dużym przybliżeniu, żeby nie zalać czarnej dziury.
+            core_k = min(1.0, max(0.0, 1.4 - cam.zoom / 8))
+            d = 2 * 2.2 * cam.scale_px(size) * f
+            blit_scaled(frame, self.core, (cx, cy), d, alpha * core_k * (0.85 + 0.08 * math.sin(t * 1.3)))
+            # Sgr A*: na widoku całej galaktyki mały punkt, po przybliżeniu pełny obraz.
+            bh_d = min(9.0 * cam.zoom * f, 0.75 * min(size))
+            self.black_hole.draw(frame, (cx, cy), bh_d, t, alpha * min(1.0, 0.35 + cam.zoom / 12))
+        self.draw_objects(frame, cam, t, alpha)
+        # Czarna dziura nie ma sprite'a w draw_objects – poprawiamy jej obszar trafienia.
+        self.hits = [(o, x, y, max(bh_d * 0.3, MIN_HIT_PX) if o.kind == "black_hole" else r)
+                     for (o, x, y, r) in self.hits]
+        self._draw_sun_marker(frame, alpha)
+
+    def _draw_sun_marker(self, frame, alpha):
+        """Delikatny okrąg i podpis przy Słońcu – żeby widz od razu wiedział, gdzie jesteśmy."""
+        for o, x, y, r in self.hits:
+            if o.id == "sun":
+                h = frame.get_height()
+                ring = int(max(r * 1.6, h * 0.022))
+                pygame.draw.circle(frame, scaled((255, 220, 140), 0.55 * alpha), (int(x), int(y)), ring, 1)
+                text(frame, "Jesteśmy tutaj", max(16, h // 42), scaled((255, 220, 140), 0.8 * alpha),
+                     center=(int(x), int(y + ring + h * 0.02)))
+
+
+class LocalLevel(Level):
+    key = "local"
+    title = "Okolica Słońca"
+    note = "Kierunki prawdziwe, odległości w skali logarytmicznej"
+    view_radius = 1.05
+    home_tilt = 30.0
+    sprite_scale = 0.05
+    RINGS = ((3.07, "10 lat św."), (30.7, "100 lat św."), (306.6, "1000 lat św."))
+
+    def __init__(self, catalog, rng: np.random.Generator):
+        super().__init__(catalog)
+        # Tło: kilka tysięcy gwiazd, gęściej w płaszczyźnie galaktyki.
+        n = 2500
+        v = rng.normal(0, 1, (n, 3))
+        v[:, 1] *= 0.45
+        v /= np.linalg.norm(v, axis=1, keepdims=True)
+        r = rng.uniform(0.15, 1.0, n) ** 0.5
+        self.bg_pts = (v * r[:, None]).astype(np.float32)
+        temps = rng.choice([3200, 4200, 5500, 6500, 9000, 15000], n, p=[.35, .2, .2, .12, .08, .05])
+        cols = np.array([temp_to_rgb(k) for k in temps], np.float32)
+        self.bg_cols = cols * rng.uniform(0.15, 0.7, (n, 1)).astype(np.float32) ** 2
+        a = np.linspace(0, 2 * math.pi, 240, endpoint=False)
+        self.ring_pts = []
+        for d_pc, _ in self.RINGS:
+            rad = float(np.linalg.norm(local_to_scene(0, 0, d_pc)))
+            self.ring_pts.append(np.stack([rad * np.cos(a), np.zeros_like(a), rad * np.sin(a)], -1).astype(np.float32))
+
+    def draw_points(self, layer, cam, size, t, alpha):
+        sx, sy, f, vis = cam.project(self.bg_pts, size)
+        layer.add(sx[vis], sy[vis], self.bg_cols[vis] * alpha)
+        ring_col = np.array([0.35, 0.55, 0.75], np.float32) * 0.35 * alpha
+        for pts in self.ring_pts:
+            sx, sy, f, vis = cam.project(pts, size)
+            layer.add(sx[vis], sy[vis], np.broadcast_to(ring_col, (int(vis.sum()), 3)))
+
+    def draw_sprites(self, frame, cam, t, alpha):
+        size = frame.get_size()
+        h = size[1]
+        for pts, (_, label) in zip(self.ring_pts, self.RINGS):
+            # Podpis pierścienia w jego najbliższym widzowi punkcie.
+            sx, sy, f, vis = cam.project(pts, size)
+            i = int(np.argmax(sy))
+            text(frame, label, max(14, h // 48), scaled((110, 160, 210), 0.8 * alpha),
+                 center=(int(sx[i]), int(sy[i] + h * 0.018)))
+        self.draw_objects(frame, cam, t, alpha)
+        self.draw_note(frame, alpha)
+
+
+class SolarLevel(Level):
+    key = "solar"
+    title = "Układ Słoneczny"
+    note = "Odległości w skali logarytmicznej, rozmiary planet powiększone"
+    view_radius = 1.1
+    home_tilt = 28.0
+    sprite_scale = 0.045
+
+    def __init__(self, catalog, rng: np.random.Generator):
+        super().__init__(catalog)
+        for o in self.objects:
+            if o.kind == "star":
+                self.sprites[o.id] = sun_sprite(192, o.color)
+        a = np.linspace(0, 2 * math.pi, 400, endpoint=False)
+        self.orbits = []
+        for o in self.objects:
+            if o.orbit_r > 0:
+                r = o.orbit_r
+                self.orbits.append(np.stack([r * np.cos(a), np.zeros_like(a), r * np.sin(a)], -1).astype(np.float32))
+        # Pas planetoid między Marsem a Jowiszem (2,2–3,3 j.a.).
+        n = 1400
+        self.belt_r = np.array([solar_orbit_radius(x) for x in rng.uniform(2.2, 3.3, n)], np.float32)
+        self.belt_a = rng.uniform(0, 2 * math.pi, n).astype(np.float32)
+        self.belt_y = rng.normal(0, 0.006, n).astype(np.float32)
+        self.belt_col = (np.array([0.75, 0.68, 0.6], np.float32) * rng.uniform(0.1, 0.35, (n, 1))).astype(np.float32)
+        # Gwiazdy tła.
+        m = 900
+        v = rng.normal(0, 1, (m, 3))
+        self.bg = (v / np.linalg.norm(v, axis=1, keepdims=True) * 1.6).astype(np.float32)
+        self.bg_col = (np.array([0.8, 0.85, 1.0], np.float32) * rng.uniform(0.05, 0.3, (m, 1))).astype(np.float32)
+
+    def sprite_diameter(self, o, cam, size, f):
+        return min(min(size) * self.sprite_scale * o.size * f * cam.zoom ** 0.6, 0.45 * min(size))
+
+    def draw_points(self, layer, cam, size, t, alpha):
+        sx, sy, f, vis = cam.project(self.bg, size)
+        layer.add(sx[vis], sy[vis], self.bg_col[vis] * alpha)
+        orbit_col = np.array([0.4, 0.6, 0.85], np.float32) * 0.3 * alpha
+        for pts in self.orbits:
+            sx, sy, f, vis = cam.project(pts, size)
+            layer.add(sx[vis], sy[vis], np.broadcast_to(orbit_col, (int(vis.sum()), 3)))
+        a = self.belt_a + t * 0.05
+        belt = np.stack([self.belt_r * np.cos(a), self.belt_y, -self.belt_r * np.sin(a)], -1)
+        sx, sy, f, vis = cam.project(belt, size)
+        layer.add(sx[vis], sy[vis], self.belt_col[vis] * alpha)
+
+    def draw_sprites(self, frame, cam, t, alpha):
+        self.draw_objects(frame, cam, t, alpha)
+        self.draw_note(frame, alpha)
