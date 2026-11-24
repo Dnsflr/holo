@@ -25,8 +25,14 @@ class Camera:
         self.goal_zoom = self.zoom
         self.goal_tilt = self.tilt
         self.smooth = 2.2  # szybkość dochodzenia do celu (większa = szybciej)
+        # Przesunięcie środka obrazu (ułamek szerokości ekranu) – robi miejsce na kartę informacji.
+        self.offset_x = 0.0
+        self.goal_offset_x = 0.0
 
-    def fly_to(self, target=None, zoom: float | None = None, tilt_deg: float | None = None) -> None:
+    def fly_to(self, target=None, zoom: float | None = None, tilt_deg: float | None = None,
+               offset_x: float | None = None) -> None:
+        if offset_x is not None:
+            self.goal_offset_x = offset_x
         if target is not None:
             self.goal_target = np.asarray(target, dtype=float)
         if zoom is not None:
@@ -39,6 +45,7 @@ class Camera:
         self.target = self.goal_target.copy()
         self.zoom = self.goal_zoom
         self.tilt = self.goal_tilt
+        self.offset_x = self.goal_offset_x
 
     @property
     def moving(self) -> bool:
@@ -51,6 +58,7 @@ class Camera:
         # Zoom interpolowany w skali logarytmicznej – lot wygląda równomiernie.
         self.zoom = math.exp(math.log(self.zoom) + (math.log(self.goal_zoom) - math.log(self.zoom)) * k)
         self.tilt += (self.goal_tilt - self.tilt) * k
+        self.offset_x += (self.goal_offset_x - self.offset_x) * k
         if auto_rotate:
             self.yaw += self.yaw_speed * dt
 
@@ -74,7 +82,7 @@ class Camera:
         visible = z2 < dist * 0.9
         f = dist / np.maximum(dist - z2, dist * 0.1)
         s = self.scale_px(size)
-        sx = size[0] / 2 + x1 * f * s
+        sx = size[0] * (0.5 + self.offset_x) + x1 * f * s
         sy = size[1] / 2 - y2 * f * s
         return sx, sy, f, visible
 
