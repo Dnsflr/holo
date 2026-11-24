@@ -105,3 +105,19 @@ def test_wejscie_do_sceny_czarnej_dziury_i_powrot(app):
     app.back(); app.back()
     frames(app, 60, cursor)
     assert app.current == "galaxy" and app.selected.id == "sgr_a"
+
+
+def test_scena_pulsara_klikanie_pulsara_i_mglawicy(app):
+    cursor = Cursor(SIZE)
+    if app.current != "galaxy":
+        app.back(); app.back(); frames(app, 60, cursor)
+    app.select(app.levels["galaxy"].find("crab"))
+    frames(app, 30, cursor)
+    app.click(screen_pos(app, "crab"))
+    frames(app, 60, cursor)
+    assert app.current == "crab"
+    x, y = screen_pos(app, "crab_pulsar")
+    app.click((x + 2, y + 1))
+    assert app.selected.id == "crab_pulsar"
+    app.click((x + 120, y))
+    assert app.selected is None or app.selected.id == "crab_nebula"

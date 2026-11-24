@@ -13,6 +13,7 @@ from .output import Output
 from .picking import pick
 from .render import StarLayer
 from .scenes.blackhole3d import BlackHoleScene
+from .scenes.crab import CrabScene
 from .ui import (Cursor, InfoCard, draw_breadcrumb, draw_calibration, draw_highlight, draw_hints,
                  draw_label, text)
 
@@ -48,6 +49,7 @@ class App:
         self.levels: dict[str, Level] = {
             "galaxy": GalaxyLevel(catalog, cfg, rng),
             "blackhole": BlackHoleScene(catalog, rng),
+            "crab": CrabScene(catalog, rng),
             "solar": SolarLevel(catalog, rng),
         }
         self.cams = {k: lv.make_camera() for k, lv in self.levels.items()}

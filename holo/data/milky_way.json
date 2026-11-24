@@ -72,6 +72,122 @@
       "description": "Jesteśmy tutaj – mniej więcej w połowie drogi od centrum do krawędzi galaktyki. Kliknij Słońce jeszcze raz, aby zobaczyć Układ Słoneczny."
     },
     {
+      "id": "crab",
+      "level": "galaxy",
+      "kind": "nebula",
+      "l": 184.56,
+      "b": -5.78,
+      "dist_kpc": 2.0,
+      "name": "Pulsar w Krabie",
+      "type": "Gwiazda neutronowa w Mgławicy Kraba",
+      "color": [
+        1.0,
+        0.6,
+        0.45
+      ],
+      "size": 1.1,
+      "zoom": 7,
+      "enter": "crab",
+      "params": [
+        [
+          "Odległość",
+          "ok. 6 500 lat św."
+        ],
+        [
+          "Gwiazdozbiór",
+          "Byk"
+        ],
+        [
+          "Wybuch supernowej",
+          "widziany w 1054 r."
+        ],
+        [
+          "Obroty pulsara",
+          "ok. 30 na sekundę"
+        ]
+      ],
+      "description": "W 1054 r. chińscy astronomowie zobaczyli „gwiazdę gościa” widoczną nawet w dzień. To wybuchała gwiazda – została po niej mgławica i wirująca gwiazda neutronowa. Kliknij jeszcze raz, aby zobaczyć ją z bliska."
+    },
+    {
+      "id": "crab_pulsar",
+      "level": "crab",
+      "kind": "pulsar",
+      "pos": [
+        0,
+        0,
+        0
+      ],
+      "name": "Pulsar w Krabie",
+      "type": "Gwiazda neutronowa (PSR B0531+21)",
+      "temp_k": 12000,
+      "size": 0.6,
+      "zoom": 2.2,
+      "params": [
+        [
+          "Obrót",
+          "raz na 33 milisekundy (30 razy na sekundę)"
+        ],
+        [
+          "Promień",
+          "ok. 10 km – jak duże miasto"
+        ],
+        [
+          "Masa",
+          "ok. 1,4 masy Słońca"
+        ],
+        [
+          "Gęstość",
+          "łyżeczka materii waży miliardy ton"
+        ],
+        [
+          "Zwalnianie",
+          "o ok. 38 nanosekund na dobę"
+        ]
+      ],
+      "description": "Pozostałość jądra gwiazdy, które zapadło się podczas wybuchu. Wzdłuż osi magnetycznej wysyła dwie wiązki promieniowania – gdy omiatają Ziemię, widzimy błyski jak z latarni morskiej."
+    },
+    {
+      "id": "crab_nebula",
+      "level": "crab",
+      "kind": "nebula",
+      "pos": [
+        0,
+        0,
+        0
+      ],
+      "name": "Mgławica Kraba",
+      "type": "Pozostałość po supernowej (M1)",
+      "color": [
+        1.0,
+        0.6,
+        0.45
+      ],
+      "zoom": 1.0,
+      "params": [
+        [
+          "Odległość",
+          "ok. 6 500 lat św."
+        ],
+        [
+          "Średnica",
+          "ok. 11 lat św."
+        ],
+        [
+          "Prędkość rozszerzania",
+          "ok. 1 500 km/s"
+        ],
+        [
+          "Wiek",
+          "niecałe 1 000 lat"
+        ],
+        [
+          "Gwiazdozbiór",
+          "Byk"
+        ]
+      ],
+      "description": "Rozszerzająca się chmura gazu wyrzuconego w wybuchu. Świeci energią pulsara: niebieskawa poświata w środku to elektrony wirujące w polu magnetycznym, a kolorowe włókna – gaz bogaty w pierwiastki powstałe w gwieździe."
+    },
+    {
       "id": "sgr_a_detail",
       "level": "blackhole",
       "kind": "black_hole",

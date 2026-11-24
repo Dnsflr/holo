@@ -39,3 +39,14 @@ def test_orbita_keplera_peryapsis_i_okres():
     assert np.allclose(p0, p1, atol=1e-5)                               # po okresie ten sam punkt
     half = kepler_position(a, e, period, 0.0, rot, period / 2)[0]
     assert np.linalg.norm(half) == pytest.approx(a * (1 + e), rel=1e-4)  # apoapsis
+
+
+def test_os_magnetyczna_pulsara_wiruje_pod_stalym_katem():
+    from holo.scenes.crab import MAG_TILT, SPIN_HZ, CrabScene
+    from holo.catalog import load_catalog
+    scene = CrabScene(load_catalog(), np.random.default_rng(0))
+    m0 = scene.magnetic_axis(0.0)
+    m_half = scene.magnetic_axis(0.5 / SPIN_HZ)
+    for m in (m0, m_half):
+        assert math.acos(float(np.dot(m, scene.spin))) == pytest.approx(MAG_TILT, abs=1e-6)
+    assert not np.allclose(m0, m_half)   # po pół obrotu oś wskazuje gdzie indziej
