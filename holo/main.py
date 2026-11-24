@@ -1,18 +1,30 @@
 """Pętla główna: okno, mysz i klawisze, rysowanie klatki."""
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pygame
 
 from .config import Config, parse_args
+from .levels import GalaxyLevel
 from .output import Output
-from .renderer import ViewRenderer
-from .scene import Scene
+from .render import StarLayer
 from .ui import Cursor, draw_calibration, text
 
-PRECESSION_SPEED = 0.04
+
+class Backdrop:
+    """Migoczące gwiazdy tła – nieruchome względem ekranu."""
+
+    def __init__(self, size, rng: np.random.Generator):
+        n = size[0] * size[1] // 3500
+        self.x = rng.uniform(0, size[0], n)
+        self.y = rng.uniform(0, size[1], n)
+        self.col = rng.uniform(0.08, 0.35, (n, 1)) * np.array([[0.8, 0.85, 1.0]])
+        self.phase = rng.uniform(0, 2 * np.pi, n)
+        self.rate = rng.uniform(0.4, 2.0, n)
+
+    def draw(self, layer: StarLayer, t: float) -> None:
+        tw = 0.55 + 0.45 * np.sin(self.phase + self.rate * t)
+        layer.add(self.x, self.y, self.col * tw[:, None])
 
 
 def run(cfg: Config) -> None:
@@ -36,8 +48,10 @@ def run(cfg: Config) -> None:
     cursor = Cursor(size)
 
     rng = np.random.default_rng(cfg.seed)
-    scene = Scene(cfg, rng)
-    view = ViewRenderer(int(min(size) * 0.95), 0.0, cfg, rng)
+    layer = StarLayer(size, cfg.render_scale)
+    backdrop = Backdrop(size, rng)
+    level = GalaxyLevel(cfg, rng)
+    cam = level.make_camera()
 
     clock = pygame.time.Clock()
     t = 0.0
@@ -83,14 +97,17 @@ def run(cfg: Config) -> None:
         dt = 0.0 if paused else real_dt * cfg.speed
         t += dt
         cursor.update(real_dt)
+        cam.update(dt)
 
         frame.fill((0, 0, 0))
         if calibrating:
             draw_calibration(frame, out.flip_h, out.flip_v)
         else:
-            precession = PRECESSION_SPEED * t
-            img = view.render(scene.update(t, dt, precession), t, math.radians(30), precession)
-            frame.blit(img, img.get_rect(center=(size[0] // 2, size[1] // 2)))
+            layer.begin()
+            backdrop.draw(layer, t)
+            level.draw_points(layer, cam, size, t, 1.0)
+            frame.blit(layer.finish(cfg.glow), (0, 0))
+            level.draw_sprites(frame, cam, t, 1.0)
         cursor.draw(frame)
         if cfg.show_fps:
             text(frame, f"{clock.get_fps():.0f} FPS", 24, (90, 90, 90), topleft=(8, 8))
