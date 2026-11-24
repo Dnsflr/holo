@@ -46,6 +46,7 @@ class Level:
     view_radius = 1.0
     home_tilt = 50.0
     home_zoom = 1.0
+    tilt_range = (-80.0, 85.0)  # zakres pochylania myszą [stopnie]
     sprite_scale = 0.04  # rozmiar sprite'a jako ułamek krótszego boku ekranu
 
     def __init__(self, catalog: list[CelestialObject]):
@@ -55,7 +56,7 @@ class Level:
 
     # --- kamera ---
     def make_camera(self) -> Camera:
-        cam = Camera(self.view_radius, self.home_tilt, yaw=self.home_yaw())
+        cam = Camera(self.view_radius, self.home_tilt, yaw=self.home_yaw(), tilt_range=self.tilt_range)
         cam.zoom = cam.goal_zoom = self.home_zoom
         return cam
 
@@ -99,6 +100,7 @@ class GalaxyLevel(Level):
     title = "Droga Mleczna"
     view_radius = 16.0  # kpc
     home_tilt = 52.0
+    tilt_range = (10.0, 90.0)  # galaktykę oglądamy od góry lub ukośnie, nie od spodu
     sprite_scale = 0.035
 
     def __init__(self, catalog, cfg, rng: np.random.Generator):

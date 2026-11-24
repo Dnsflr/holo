@@ -1,6 +1,8 @@
 """Pętla główna: nawigacja między poziomami, mysz i klawisze, rysowanie klatki."""
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pygame
 
@@ -17,6 +19,7 @@ ORDER = ("galaxy", "local", "solar")
 TRANSITION_S = 1.6     # czas przejścia między poziomami
 CARD_OFFSET = -0.17    # o ile przesunąć obraz w lewo, gdy karta jest widoczna
 TOUR_STEP_S = 14.0     # tryb pokazowy: co ile sekund następny obiekt
+DRAG_THRESHOLD_PX = 6  # ruch myszy z wciśniętym przyciskiem większy niż to = przeciąganie, nie klik
 
 
 class Backdrop:
@@ -60,6 +63,9 @@ class App:
         self.idle = 0.0
         self.tour_index = -1
         self.touring = False
+        self.pressed = False      # lewy przycisk wciśnięty
+        self.drag_travel = 0.0    # ile pikseli przejechała mysz od wciśnięcia
+        self.last_real_dt = 1 / 30
 
     # ------------------------------------------------------------------ akcje
     @property
@@ -92,6 +98,33 @@ class App:
             self.descend(obj)
         else:
             self.select(obj)
+
+    # ------------------------------------------------- mysz: klik albo obracanie
+    @property
+    def dragging(self) -> bool:
+        return self.pressed and self.drag_travel > DRAG_THRESHOLD_PX
+
+    def press(self) -> None:
+        self.pressed = True
+        self.drag_travel = 0.0
+        self.cam.stop_spin()
+
+    def motion(self, dx: float, dy: float) -> bool:
+        """Ruch myszy. Zwraca True, gdy to przeciąganie (wtedy kursor ma stać w miejscu)."""
+        if not self.pressed:
+            return False
+        self.drag_travel += abs(dx) + abs(dy)
+        if self.dragging and not self.transition:
+            self.cam.drag(dx, dy, self.last_real_dt)
+            return True
+        return False
+
+    def release(self, pos) -> None:
+        was_drag = self.dragging
+        self.pressed = False
+        self.cam.release()
+        if not was_drag:
+            self.click(pos)
 
     def back(self) -> None:
         if self.transition:
@@ -130,6 +163,14 @@ class App:
         self.card.hide()
         self.transition = {"from": self.current, "to": to, "p": 0.0, "select": then_select}
 
+    def rotate_view(self, yaw_deg: float, tilt_deg: float | None) -> None:
+        """Ustawia obrót kamery bieżącego poziomu (do testów i zrzutów ekranu)."""
+        cam = self.cam
+        cam.yaw += math.radians(yaw_deg)
+        if tilt_deg is not None:
+            cam.tilt = cam.goal_tilt = cam._clamp_tilt(math.radians(tilt_deg))
+        cam.since_user = 0.0
+
     def select_by_id(self, obj_id: str) -> bool:
         """Natychmiastowy wybór obiektu (do testów i zrzutów ekranu)."""
         for key, lv in self.levels.items():
@@ -158,6 +199,7 @@ class App:
     def update(self, dt: float, real_dt: float, cursor: Cursor) -> None:
         self.t += dt
         self.idle += real_dt
+        self.last_real_dt = max(real_dt, 1e-3)
         self.card.update(real_dt)
 
         tour_after = self.cfg.tour_after
@@ -174,8 +216,8 @@ class App:
         if self.transition:
             tr = self.transition
             tr["p"] += real_dt / TRANSITION_S
-            self.cams[tr["from"]].update(real_dt)
-            self.cams[tr["to"]].update(real_dt)
+            self.cams[tr["from"]].update(dt, real_dt=real_dt)
+            self.cams[tr["to"]].update(dt, real_dt=real_dt)
             if tr["p"] >= 1.0:
                 self.current = tr["to"]
                 self.transition = None
@@ -186,7 +228,7 @@ class App:
         # Kamera podąża za poruszającym się obiektem (np. planetą).
         if self.selected is not None:
             self.cam.goal_target = np.asarray(self.selected.position_at(self.t), dtype=float)
-        self.cam.update(dt if self.selected is None else real_dt, auto_rotate=self.selected is None)
+        self.cam.update(dt, auto_rotate=self.selected is None, real_dt=real_dt)
 
         self.hovered = pick(self.level.hits, cursor.pos) if cursor.alpha > 0 else None
 
@@ -255,6 +297,8 @@ def run(cfg: Config) -> None:
     app = App(cfg, size)
     if cfg.select and not app.select_by_id(cfg.select):
         print(f"Nie ma obiektu o id {cfg.select!r}")
+    if cfg.yaw or cfg.tilt is not None:
+        app.rotate_view(cfg.yaw, cfg.tilt)
 
     clock = pygame.time.Clock()
     calibrating = cfg.calibrate
@@ -268,17 +312,27 @@ def run(cfg: Config) -> None:
                 running = False
             elif ev.type == pygame.MOUSEMOTION:
                 app.input_activity()
-                if relative_mouse:
-                    cursor.move_by(*ev.rel)
+                dx, dy = ev.rel
+                if out.flip_h and not relative_mouse:
+                    dx = -dx
+                if out.flip_v and not relative_mouse:
+                    dy = -dy
+                if app.motion(dx, dy):
+                    cursor.idle = 0.0  # obracamy – kursor stoi, ale nie gaśnie
+                elif relative_mouse:
+                    cursor.move_by(dx, dy)
                 else:
                     cursor.move_to(out.to_logical(ev.pos))
             elif ev.type == pygame.MOUSEBUTTONDOWN:
                 app.input_activity()
                 cursor.idle = 0.0
                 if ev.button == 1:
-                    app.click(cursor.pos)
+                    app.press()
                 elif ev.button == 3:
                     app.back()
+            elif ev.type == pygame.MOUSEBUTTONUP:
+                if ev.button == 1:
+                    app.release(cursor.pos)
             elif ev.type == pygame.MOUSEWHEEL:
                 app.input_activity()
                 cam = app.cam

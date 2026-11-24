@@ -24,6 +24,8 @@ class Config:
     frames: int = 0            # (test) zakończ po tylu klatkach
     screenshot: str | None = None  # (test) zapisz ostatnią klatkę do pliku
     select: str | None = None      # (test) od razu wybierz obiekt o tym id
+    yaw: float = 0.0               # (test) dodatkowy obrót kamery w stopniach
+    tilt: float | None = None      # (test) pochylenie kamery w stopniach
 
 
 def parse_args(argv: list[str] | None = None) -> Config:
@@ -53,4 +55,6 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--frames", type=int, default=0, help=argparse.SUPPRESS)
     p.add_argument("--screenshot", default=None, help=argparse.SUPPRESS)
     p.add_argument("--select", default=None, help=argparse.SUPPRESS)
+    p.add_argument("--yaw", type=float, default=0.0, help=argparse.SUPPRESS)
+    p.add_argument("--tilt", type=float, default=None, help=argparse.SUPPRESS)
     return Config(**vars(p.parse_args(argv)))

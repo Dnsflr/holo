@@ -62,3 +62,25 @@ def test_wstecz_wraca_do_galaktyki_i_zaznacza_slonce(app):
     assert app.selected.id == "sun"
     app.back()
     assert app.selected is None
+
+
+def test_przeciaganie_nie_jest_kliknieciem(app):
+    cursor = Cursor(SIZE)
+    frames(app, 2, cursor)
+    sel = app.selected
+    yaw0 = app.cam.yaw
+    app.press()
+    for _ in range(10):
+        app.motion(8, 0)
+    app.release((5, 5))          # puszczenie w pustym miejscu – ale to było przeciąganie
+    assert app.cam.yaw > yaw0
+    assert app.selected is sel   # wybór się nie zmienił
+
+
+def test_krotkie_klikniecie_dziala(app):
+    cursor = Cursor(SIZE)
+    frames(app, 2, cursor)
+    app.press()
+    app.motion(1, 1)
+    app.release(screen_pos(app, "sun"))
+    assert app.selected is not None and app.selected.id == "sun"
