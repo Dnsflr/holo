@@ -8,14 +8,15 @@ import pygame
 
 from .catalog import CelestialObject, load_catalog
 from .config import Config, parse_args
-from .levels import GalaxyLevel, Level, LocalLevel, SolarLevel
+from .levels import GalaxyLevel, Level, SolarLevel
 from .output import Output
 from .picking import pick
 from .render import StarLayer
+from .scenes.blackhole3d import BlackHoleScene
 from .ui import (Cursor, InfoCard, draw_breadcrumb, draw_calibration, draw_highlight, draw_hints,
                  draw_label, text)
 
-ORDER = ("galaxy", "local", "solar")
+HOME = "galaxy"  # mapa – z niej wchodzi się do scen, do niej się wraca
 TRANSITION_S = 1.6     # czas przejścia między poziomami
 CARD_OFFSET = -0.17    # o ile przesunąć obraz w lewo, gdy karta jest widoczna
 TOUR_STEP_S = 14.0     # tryb pokazowy: co ile sekund następny obiekt
@@ -46,15 +47,16 @@ class App:
         catalog = load_catalog()
         self.levels: dict[str, Level] = {
             "galaxy": GalaxyLevel(catalog, cfg, rng),
-            "local": LocalLevel(catalog, rng),
+            "blackhole": BlackHoleScene(catalog, rng),
             "solar": SolarLevel(catalog, rng),
         }
         self.cams = {k: lv.make_camera() for k, lv in self.levels.items()}
         self.layer = StarLayer(size, cfg.render_scale)
+        self.layer.gas = StarLayer(size, cfg.render_scale * 0.45, bilinear=False)
         self.backdrop = Backdrop(size, rng)
         self.card = InfoCard(size)
 
-        self.current = "galaxy"
+        self.current = HOME
         self.selected: CelestialObject | None = None
         self.hovered: CelestialObject | None = None
         self.entered_from: dict[str, CelestialObject] = {}  # poziom → obiekt, przez który weszliśmy
@@ -131,7 +133,7 @@ class App:
             return
         if self.selected:
             self.deselect()
-        elif self.current != ORDER[0]:
+        elif self.current != HOME:
             self.ascend()
 
     def descend(self, obj: CelestialObject) -> None:
@@ -147,7 +149,7 @@ class App:
         self._start_transition(to, then_select=None)
 
     def ascend(self) -> None:
-        to = ORDER[ORDER.index(self.current) - 1]
+        to = HOME
         obj = self.entered_from.get(self.current)
         self.cam.fly_to(zoom=self.level.home_zoom * 0.12, offset_x=0.0)
         new_cam = self.cams[to]
@@ -256,9 +258,11 @@ class App:
         if not self.transition:
             self._draw_selection(frame, cursor)
 
-        crumbs = [self.levels[k].title for k in ORDER[: ORDER.index(self.current) + 1]]
+        crumbs = [self.levels[HOME].title]
+        if self.current != HOME:
+            crumbs.append(self.levels[self.current].title)
         draw_breadcrumb(frame, crumbs)
-        draw_hints(frame, self.current != ORDER[0] or self.selected is not None, cursor.alpha)
+        draw_hints(frame, self.current != HOME or self.selected is not None, cursor.alpha)
 
     def _draw_selection(self, frame: pygame.Surface, cursor: Cursor) -> None:
         anchor = None

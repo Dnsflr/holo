@@ -1,4 +1,4 @@
-"""Poziomy nawigacji: Droga Mleczna → Okolica Słońca → Układ Słoneczny.
+"""Poziomy nawigacji: mapa Drogi Mlecznej i Układ Słoneczny (sceny 3D są w holo/scenes).
 
 Każdy poziom ma własną skalę (view_radius), domyślne ustawienie kamery
 i rysuje się w dwóch krokach: punkty do warstwy gwiazd (draw_points)
@@ -16,7 +16,7 @@ import pygame
 
 from .blackhole import BlackHole
 from .camera import Camera
-from .catalog import CelestialObject, local_to_scene, solar_orbit_radius, temp_to_rgb
+from .catalog import CelestialObject, solar_orbit_radius
 from .galaxy import MilkyWay
 from .render import StarLayer
 from .sprites import (blit_scaled, cluster_sprite, nebula_sprite, planet_sprite, radial_glow,
@@ -150,54 +150,6 @@ class GalaxyLevel(Level):
                 pygame.draw.circle(frame, scaled((255, 220, 140), 0.55 * alpha), (int(x), int(y)), ring, 1)
                 text(frame, "Jesteśmy tutaj", max(16, h // 42), scaled((255, 220, 140), 0.8 * alpha),
                      center=(int(x), int(y + ring + h * 0.02)))
-
-
-class LocalLevel(Level):
-    key = "local"
-    title = "Okolica Słońca"
-    note = "Kierunki prawdziwe, odległości w skali logarytmicznej"
-    view_radius = 1.05
-    home_tilt = 30.0
-    sprite_scale = 0.05
-    RINGS = ((3.07, "10 lat św."), (30.7, "100 lat św."), (306.6, "1000 lat św."))
-
-    def __init__(self, catalog, rng: np.random.Generator):
-        super().__init__(catalog)
-        # Tło: kilka tysięcy gwiazd, gęściej w płaszczyźnie galaktyki.
-        n = 2500
-        v = rng.normal(0, 1, (n, 3))
-        v[:, 1] *= 0.45
-        v /= np.linalg.norm(v, axis=1, keepdims=True)
-        r = rng.uniform(0.15, 1.0, n) ** 0.5
-        self.bg_pts = (v * r[:, None]).astype(np.float32)
-        temps = rng.choice([3200, 4200, 5500, 6500, 9000, 15000], n, p=[.35, .2, .2, .12, .08, .05])
-        cols = np.array([temp_to_rgb(k) for k in temps], np.float32)
-        self.bg_cols = cols * rng.uniform(0.15, 0.7, (n, 1)).astype(np.float32) ** 2
-        a = np.linspace(0, 2 * math.pi, 240, endpoint=False)
-        self.ring_pts = []
-        for d_pc, _ in self.RINGS:
-            rad = float(np.linalg.norm(local_to_scene(0, 0, d_pc)))
-            self.ring_pts.append(np.stack([rad * np.cos(a), np.zeros_like(a), rad * np.sin(a)], -1).astype(np.float32))
-
-    def draw_points(self, layer, cam, size, t, alpha):
-        sx, sy, f, vis = cam.project(self.bg_pts, size)
-        layer.add(sx[vis], sy[vis], self.bg_cols[vis] * alpha)
-        ring_col = np.array([0.35, 0.55, 0.75], np.float32) * 0.35 * alpha
-        for pts in self.ring_pts:
-            sx, sy, f, vis = cam.project(pts, size)
-            layer.add(sx[vis], sy[vis], np.broadcast_to(ring_col, (int(vis.sum()), 3)))
-
-    def draw_sprites(self, frame, cam, t, alpha):
-        size = frame.get_size()
-        h = size[1]
-        for pts, (_, label) in zip(self.ring_pts, self.RINGS):
-            # Podpis pierścienia w jego najbliższym widzowi punkcie.
-            sx, sy, f, vis = cam.project(pts, size)
-            i = int(np.argmax(sy))
-            text(frame, label, max(14, h // 48), scaled((110, 160, 210), 0.8 * alpha),
-                 center=(int(sx[i]), int(sy[i] + h * 0.018)))
-        self.draw_objects(frame, cam, t, alpha)
-        self.draw_note(frame, alpha)
 
 
 class SolarLevel(Level):

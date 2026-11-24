@@ -1,4 +1,4 @@
-"""Scenariusz klikania: galaktyka → Słońce → Okolica Słońca → wstecz."""
+"""Scenariusz klikania: mapa galaktyki → Słońce → Układ Słoneczny → wstecz."""
 import os
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -34,7 +34,7 @@ def screen_pos(app, obj_id):
     return next((x, y) for o, x, y, r in app.level.hits if o.id == obj_id)
 
 
-def test_klikanie_slonca_i_wejscie_do_okolicy(app):
+def test_klikanie_slonca_i_wejscie_do_ukladu_slonecznego(app):
     cursor = Cursor(SIZE)
     frames(app, 2, cursor)
     app.click(screen_pos(app, "sun"))
@@ -43,13 +43,14 @@ def test_klikanie_slonca_i_wejscie_do_okolicy(app):
     app.click(screen_pos(app, "sun"))          # drugie kliknięcie → wejście poziom niżej
     assert app.transition is not None
     frames(app, 60, cursor)
-    assert app.current == "local" and app.transition is None
+    assert app.current == "solar" and app.transition is None
 
 
 def test_klikniecie_w_pustke_odznacza(app):
     cursor = Cursor(SIZE)
-    app.click(screen_pos(app, "sirius"))
-    assert app.selected.id == "sirius"
+    frames(app, 2, cursor)
+    app.click(screen_pos(app, "jupiter"))
+    assert app.selected.id == "jupiter"
     app.click((5, 5))
     assert app.selected is None
 
@@ -84,3 +85,23 @@ def test_krotkie_klikniecie_dziala(app):
     app.motion(1, 1)
     app.release(screen_pos(app, "sun"))
     assert app.selected is not None and app.selected.id == "sun"
+
+
+def test_wejscie_do_sceny_czarnej_dziury_i_powrot(app):
+    cursor = Cursor(SIZE)
+    if app.current != "galaxy":
+        app.back(); frames(app, 60, cursor)
+    if app.selected is not None:
+        app.back()
+    frames(app, 2, cursor)
+    sgr = app.levels["galaxy"].find("sgr_a")
+    app.select(sgr)
+    frames(app, 30, cursor)
+    app.click(screen_pos(app, "sgr_a"))
+    frames(app, 60, cursor)
+    assert app.current == "blackhole"
+    app.click(screen_pos(app, "sgr_a_detail"))
+    assert app.selected.id == "sgr_a_detail"
+    app.back(); app.back()
+    frames(app, 60, cursor)
+    assert app.current == "galaxy" and app.selected.id == "sgr_a"

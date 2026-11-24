@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass, field
+from typing import Callable
 from pathlib import Path
 
 import numpy as np
@@ -11,13 +12,10 @@ import numpy as np
 from .galaxy import SUN_R
 
 DATA_FILE = Path(__file__).parent / "data" / "milky_way.json"
-LEVELS = ("galaxy", "local", "solar")
-KINDS = ("black_hole", "star", "nebula", "cluster", "system", "planet")
+LEVELS = ("galaxy", "blackhole", "crab", "solar")
+KINDS = ("black_hole", "star", "nebula", "cluster", "system", "planet", "pulsar")
 REQUIRED = ("id", "level", "kind", "name", "type", "params", "description")
 
-# Okolica Słońca: odległości kompresowane logarytmicznie, żeby zmieściły się
-# zarówno Proxima (4 lata św.), jak i Mgławica Oriona (1 340 lat św.).
-LOCAL_MAX_PC = 450.0
 # Układ Słoneczny: promienie orbit w skali logarytmicznej; Merkury = 0,28, Neptun = 1.
 SOLAR_MIN_AU = 0.387
 SOLAR_MAX_AU = 30.07
@@ -43,10 +41,13 @@ class CelestialObject:
     orbit_w: float = 0.0                 # prędkość kątowa [rad/s]
     phase: float = 0.0
     ring: bool = False
+    mover: Callable[[float], np.ndarray] | None = None  # własny ruch nadany przez scenę (np. S2)
     extra: dict = field(default_factory=dict)
 
     def position_at(self, t: float) -> np.ndarray:
         """Pozycja w chwili t (planety krążą, reszta stoi)."""
+        if self.mover is not None:
+            return self.mover(t)
         if self.orbit_r <= 0:
             return self.pos
         a = self.phase + self.orbit_w * t
@@ -63,12 +64,6 @@ def galactic_to_scene(l_deg: float, b_deg: float, dist_kpc: float) -> np.ndarray
     """Współrzędne galaktyczne widziane z Ziemi → pozycja w galaktyce (kpc, układ sceny)."""
     sun = np.array([-SUN_R, 0.02, 0.0], np.float32)
     return sun + direction(l_deg, b_deg) * dist_kpc
-
-
-def local_to_scene(l_deg: float, b_deg: float, dist_pc: float) -> np.ndarray:
-    """Okolica Słońca: prawdziwy kierunek, odległość skompresowana do zakresu 0..1."""
-    d = math.log10(1 + dist_pc) / math.log10(1 + LOCAL_MAX_PC)
-    return direction(l_deg, b_deg) * d
 
 
 def solar_orbit_radius(a_au: float) -> float:
@@ -116,8 +111,8 @@ def _from_dict(d: dict) -> CelestialObject:
             obj.pos = np.asarray(d["pos_kpc"], np.float32)
         else:
             obj.pos = galactic_to_scene(d["l"], d["b"], d["dist_kpc"])
-    elif d["level"] == "local":
-        obj.pos = local_to_scene(d["l"], d["b"], d["dist_pc"])
+    elif d["level"] in ("blackhole", "crab"):
+        obj.pos = np.asarray(d.get("pos", (0, 0, 0)), np.float32)
     else:
         obj.orbit_r = solar_orbit_radius(d.get("a_au", 0.0))
         obj.orbit_w = 2 * math.pi / (EARTH_ORBIT_S * d.get("period_y", 1.0) ** 0.5)
@@ -133,4 +128,7 @@ def load_catalog(path: Path = DATA_FILE) -> list[CelestialObject]:
     dupes = {i for i in ids if ids.count(i) > 1}
     if dupes:
         raise ValueError(f"Powtórzone id w katalogu: {sorted(dupes)}")
+    for o in objects:
+        if o.enter is not None and o.enter not in LEVELS:
+            raise ValueError(f"Obiekt {o.id}: pole enter wskazuje nieznany poziom {o.enter!r}")
     return objects
