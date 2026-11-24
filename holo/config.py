@@ -12,7 +12,9 @@ class Config:
     height: int = 720
     fps: int = 30
     stars: int = 20000         # liczba gwiazd galaktyki
-    render_scale: float = 0.5  # rozdzielczość renderowania gwiazd względem ekranu
+    render_height: int = 540   # wysokość klatki liczonej przez program; GPU powiększa ją na ekran
+    render_scale: float = 0.5  # rozdzielczość warstwy gwiazd względem klatki
+    quality: str = "auto"      # auto | high | medium | low
     speed: float = 1.0         # mnożnik prędkości animacji
     glow: bool = True          # poświata (bloom)
     flip_h: bool = False       # odbicie lewo-prawo (lustro)
@@ -41,8 +43,13 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--height", type=int, default=d.height)
     p.add_argument("--fps", type=int, default=d.fps)
     p.add_argument("--stars", type=int, default=d.stars, help="liczba gwiazd galaktyki")
+    p.add_argument("--render-height", type=int, default=d.render_height,
+                   help="wysokość klatki liczonej przez program, np. 360/540/720 (0 = pełna rozdzielczość "
+                        "ekranu); karta graficzna powiększa ją na cały ekran")
     p.add_argument("--render-scale", type=float, default=d.render_scale,
-                   help="rozdzielczość renderowania gwiazd (mniej = szybciej)")
+                   help="rozdzielczość warstwy gwiazd względem klatki (mniej = szybciej)")
+    p.add_argument("--quality", choices=["auto", "high", "medium", "low"], default=d.quality,
+                   help="jakość: auto dopasowuje się do szybkości komputera")
     p.add_argument("--speed", type=float, default=d.speed, help="mnożnik prędkości animacji")
     p.add_argument("--no-glow", dest="glow", action="store_false", help="wyłącz poświatę")
     p.add_argument("--flip-h", action="store_true", help="odbij obraz lewo-prawo (napisy lustrzane)")

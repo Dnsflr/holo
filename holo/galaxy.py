@@ -138,7 +138,7 @@ class MilkyWay:
         self.tw_phase = rng.uniform(0, 2 * math.pi, len(X)).astype(np.float32)
         self.tw_rate = rng.uniform(0.8, 3.0, len(X)).astype(np.float32)
 
-    def colors_at(self, t: float) -> np.ndarray:
-        """Kolory z delikatnym migotaniem."""
-        tw = 0.85 + 0.15 * np.sin(self.tw_phase + self.tw_rate * t)
-        return self.colors * tw[:, None]
+    def colors_at(self, t: float, stride: int = 1) -> np.ndarray:
+        """Kolory z delikatnym migotaniem (co stride-ta gwiazda)."""
+        tw = 0.85 + 0.15 * np.sin(self.tw_phase[::stride] + self.tw_rate[::stride] * t)
+        return self.colors[::stride] * tw[:, None]

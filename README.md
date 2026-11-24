@@ -64,10 +64,11 @@ python3 -m holo --calibrate
 Na ekranie kalibracji wciskaj `h` / `v`, aż napisy w odbiciu na plexi będą czytelne.
 Program pokaże opcje, z którymi trzeba go potem uruchamiać (np. `--flip-v`).
 
-Jeśli animacja jest za wolna (sprawdź klawiszem `f`), zmniejsz obciążenie:
+Jakość dopasowuje się sama. Jeśli mimo to animacja jest za wolna (sprawdź klawiszem `f`),
+zmniejsz rozdzielczość liczonej klatki – patrz sekcja „Wydajność”:
 
 ```bash
-python3 -m holo --flip-v --render-scale 0.4 --stars 12000
+python3 -m holo --flip-v --render-height 360
 ```
 
 ## Opcje
@@ -79,9 +80,30 @@ python3 -m holo --flip-v --render-scale 0.4 --stars 12000
 | `--flip-h`, `--flip-v` | odbicie obrazu pod plexi (ustal przez `--calibrate`) |
 | `--labels` | napisy pomocnicze (nazwy, podpisy, podpowiedzi) |
 | `--stars 20000` | liczba gwiazd galaktyki |
-| `--render-scale 0.5` | rozdzielczość renderowania gwiazd (mniej = szybciej) |
 | `--tour-after 60` | po ilu sekundach bezczynności startuje tryb pokazowy (0 = nigdy) |
 | `--windowed` | okno zamiast pełnego ekranu |
+
+## Wydajność
+
+Program liczy obraz w mniejszej rozdzielczości (domyślnie wysokość 540 pikseli), a na pełny
+ekran powiększa go karta graficzna – w odbiciu na plexi różnica jest niezauważalna.
+Jakość (liczba rysowanych cząstek, miękki gaz, poświata) **dopasowuje się sama** do szybkości
+komputera. Klawisz `f` pokazuje FPS, czas pracy nad klatką i bieżący stopień jakości.
+
+| Opcja | Opis |
+|---|---|
+| `--render-height 540` | wysokość liczonej klatki: 360 (słaby sprzęt), 540, 720 (mocny), 0 = pełna |
+| `--quality auto` | `auto`, `high`, `medium`, `low` |
+| `--fps 30` | limit klatek na sekundę |
+
+Pomiar wydajności każdego poziomu (działa też na Raspberry Pi, bez okna):
+
+```bash
+python3 tools/bench.py                       # domyślne ustawienia
+python3 tools/bench.py --quality low --render-height 360
+```
+
+Wynik poniżej ~33 ms/klatkę oznacza płynne 30 FPS.
 
 ## Własne obiekty
 

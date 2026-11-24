@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import math
+import os
+import time
 
 import numpy as np
 import pygame
@@ -11,6 +13,7 @@ from .config import Config, parse_args
 from .levels import GalaxyLevel, Level, SolarLevel
 from .output import Output
 from .picking import pick
+from .quality import Quality
 from .render import StarLayer
 from .scenes.blackhole3d import BlackHoleScene
 from .scenes.crab import CrabScene
@@ -67,7 +70,6 @@ class App:
         }
         self.cams = {k: lv.make_camera() for k, lv in self.levels.items()}
         self.layer = StarLayer(size, cfg.render_scale)
-        self.layer.gas = StarLayer(size, cfg.render_scale * 0.45, bilinear=False)
         self.backdrop = Backdrop(size, rng)
         self.card = InfoCard(size)
         self.auras = Auras()
@@ -86,6 +88,8 @@ class App:
         self.pressed = False      # lewy przycisk wciśnięty
         self.drag_travel = 0.0    # ile pikseli przejechała mysz od wciśnięcia
         self.last_real_dt = 1 / 30
+        self.quality = Quality(cfg.quality, cfg.fps)
+        self.apply_quality()
         self.set_labels(cfg.labels)
 
     # ------------------------------------------------------------------ akcje
@@ -104,6 +108,20 @@ class App:
         self.cam.fly_to(target=obj.position_at(self.t), zoom=obj.zoom, offset_x=CARD_OFFSET)
         if obj.kind == "planet":
             self.cam.goal_yaw = sunlit_yaw(obj.position_at(self.t))
+
+    def quality_name(self) -> str:
+        return "—" if self.quality is None else self.quality.name
+
+    def apply_quality(self) -> None:
+        step = self.quality.step
+        for lv in self.levels.values():
+            lv.stride = self.quality.stride
+        self.layer.set_gas(step.gas)
+
+    def frame_done(self, work_s: float, real_dt: float) -> None:
+        """Czas pracy nad klatką → automatyczna jakość."""
+        if self.quality.frame(work_s, real_dt):
+            self.apply_quality()
 
     def set_labels(self, on: bool) -> None:
         """Napisy pomocnicze wł./wył. (karty po kliknięciu są zawsze)."""
@@ -305,7 +323,7 @@ class App:
         for key, a in layers:
             if a > 0.01:
                 self.levels[key].draw_points(self.layer, self.cams[key], size, t, a)
-        frame.blit(self.layer.finish(self.cfg.glow), (0, 0))
+        frame.blit(self.layer.finish(self.cfg.glow and self.quality.step.glow), (0, 0))
         if not self.transition:
             # Poświaty pod obiektami (pozycje z poprzedniej klatki – różnica niezauważalna).
             self.auras.draw(frame, self.level.hits, self.hovered, self.selected, self.real_t,
@@ -334,13 +352,29 @@ class App:
         self.card.draw(frame, anchor)
 
 
+def logical_size(screen: tuple[int, int], render_height: int) -> tuple[int, int]:
+    """Rozmiar klatki liczonej przez program – mniejszy od ekranu, z tymi samymi proporcjami."""
+    sw, sh = screen
+    if render_height <= 0 or render_height >= sh:
+        return sw, sh
+    h = render_height
+    w = int(round(h * sw / sh / 2)) * 2
+    return w, h
+
+
 def run(cfg: Config) -> None:
+    # Powiększanie klatki na ekran robi karta graficzna (SDL) – z wygładzaniem.
+    os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")
     pygame.init()
     pygame.display.set_caption("Holo – Droga Mleczna")
     if cfg.windowed:
-        screen = pygame.display.set_mode((cfg.width, cfg.height))
+        size = logical_size((cfg.width, cfg.height), cfg.render_height)
+        flags = pygame.SCALED if size != (cfg.width, cfg.height) else 0
+        screen = pygame.display.set_mode(size, flags)
     else:
-        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        info = pygame.display.Info()
+        size = logical_size((info.current_w, info.current_h), cfg.render_height)
+        screen = pygame.display.set_mode(size, pygame.FULLSCREEN | pygame.SCALED)
     size = screen.get_size()
     out = Output(screen, cfg.flip_h, cfg.flip_v)
     frame = pygame.Surface(size, 0, 32)
@@ -429,6 +463,7 @@ def run(cfg: Config) -> None:
         real_dt = min(real_dt, 0.1)
         dt = 0.0 if paused else real_dt * cfg.speed
         cursor.update(real_dt)
+        work_start = time.perf_counter()
         app.update(dt, real_dt, cursor)
 
         frame.fill((0, 0, 0))
@@ -438,7 +473,12 @@ def run(cfg: Config) -> None:
             app.draw(frame, cursor)
         cursor.draw(frame)
         if cfg.show_fps:
-            text(frame, f"{clock.get_fps():.0f} FPS", 24, (90, 90, 90), topleft=(8, 8))
+            avg = app.quality.avg
+            work = f" • praca {avg * 1000:.0f} ms" if avg else ""
+            text(frame, f"{clock.get_fps():.0f} FPS • jakość: {app.quality_name()}{work}", 20,
+                 (110, 110, 110), topleft=(8, 8))
+        if not cfg.frames:
+            app.frame_done(time.perf_counter() - work_start, real_dt)
 
         out.present(frame)
         frame_no += 1

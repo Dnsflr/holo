@@ -152,10 +152,16 @@ class CrabScene(Level):
             sx, sy, f, vis = cam.project(points, size)
             target.add(sx[vis], sy[vis], cols[vis] * alpha)
 
+        s = self.stride
         breathe = 1.0 + 0.015 * math.sin(t * 0.5)
-        add(self.syn_pts * breathe, self.syn_col * gas_k * 2.2, gas)
-        add(self.fil_pts * breathe, self.fil_col * gas_k * 1.2, gas)
-        add(self.fil_pts * breathe, self.fil_col * 0.55)
+        syn, syn_c = self.syn_pts[::s] * breathe, self.syn_col[::s] * s
+        fil, fil_c = self.fil_pts[::s] * breathe, self.fil_col[::s] * s
+        if gas is not layer:
+            add(syn, syn_c * gas_k * 2.2, gas)
+            add(fil, fil_c * gas_k * 1.2, gas)
+        else:
+            add(syn, syn_c * 0.5)
+        add(fil, fil_c * 0.55)
 
         # Torus obraca się powoli razem z gazem wokół pulsara.
         a = self.torus_angle + t * 0.25
@@ -168,13 +174,15 @@ class CrabScene(Level):
         m, e1, e2 = basis(self.magnetic_axis(t))
         add(self._to_frame(self.field_local, m, e1, e2),
             np.tile(np.array([0.3, 0.75, 1.0], np.float32) * 0.22, (len(self.field_local), 1)))
-        u = np.mod(self.beam_u0 + t * 0.6, 1.0)          # cząstki płyną wzdłuż wiązki
-        along = (0.04 + u * BEAM_LEN) * self.beam_side
+        u = np.mod(self.beam_u0[::s] + t * 0.6, 1.0)          # cząstki płyną wzdłuż wiązki
+        along = (0.04 + u * BEAM_LEN) * self.beam_side[::s]
         dist = np.abs(along)
-        beam = (along[:, None] * m + (self.beam_off[:, 0:1] * e1 + self.beam_off[:, 1:2] * e2) * dist[:, None])
-        bcol = np.array([0.7, 0.85, 1.0], np.float32) * (self.beam_b * (1 - u) ** 1.3 * 0.9)[:, None]
-        add(beam.astype(np.float32), bcol)
-        add(beam.astype(np.float32), bcol * gas_k * 0.8, gas)
+        off = self.beam_off[::s]
+        beam = (along[:, None] * m + (off[:, 0:1] * e1 + off[:, 1:2] * e2) * dist[:, None]).astype(np.float32)
+        bcol = np.array([0.7, 0.85, 1.0], np.float32) * (self.beam_b[::s] * (1 - u) ** 1.3 * 0.9 * s)[:, None]
+        add(beam, bcol)
+        if gas is not layer:
+            add(beam, bcol * gas_k * 0.8, gas)
 
         # Błysk: jak blisko kierunku do widza jest któraś z wiązek.
         mc = cam.to_camera(m[None, :].astype(np.float32), relative=False)[0]

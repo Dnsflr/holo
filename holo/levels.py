@@ -53,6 +53,7 @@ class Level:
         self.hits: list[tuple[CelestialObject, float, float, float]] = []
         self.selected: CelestialObject | None = None  # ustawiane przez App
         self.show_text = False                         # napisy pomocnicze (ustawia App)
+        self.stride = 1                                # co która cząstka jest rysowana (jakość)
 
     # --- kamera ---
     def make_camera(self) -> Camera:
@@ -115,8 +116,9 @@ class GalaxyLevel(Level):
 
     def draw_points(self, layer, cam, size, t, alpha):
         g = self.galaxy
-        sx, sy, f, vis = cam.project(g.points, size)
-        cols = g.colors_at(t)[vis] * (alpha * np.minimum(f[vis], 2.0))[:, None]
+        s = self.stride
+        sx, sy, f, vis = cam.project(g.points[::s], size)
+        cols = g.colors_at(t, s)[vis] * (alpha * s * np.minimum(f[vis], 2.0))[:, None]
         layer.add(sx[vis], sy[vis], cols)
 
     def sprite_diameter(self, o, cam, size, f):
@@ -190,6 +192,13 @@ class SolarLevel(Level):
             if o.orbit_r > 0:
                 r = o.orbit_r
                 self.orbits.append(np.stack([r * np.cos(a), np.zeros_like(a), r * np.sin(a)], -1).astype(np.float32))
+        # Wszystkie orbity w jednej tablicy – jedno rzutowanie na klatkę zamiast ośmiu.
+        self.orbit_pts = np.concatenate(self.orbits)
+        self.planet_ids = [o for o in self.objects if o.id in self.textures]
+        self._screen_key = None
+        self._screen = []
+        self._shade_cache: dict[str, tuple[int, int, pygame.Surface]] = {}
+        self._frame = 0
         # Pas planetoid między Marsem a Jowiszem (2,2–3,3 j.a.).
         n = 1400
         self.belt_r = np.array([solar_orbit_radius(x) for x in rng.uniform(2.2, 3.3, n)], np.float32)
@@ -210,38 +219,45 @@ class SolarLevel(Level):
         return self.sprite_scale * o.size * self.view_radius * cam.zoom ** -0.4
 
     def _planets_on_screen(self, cam, size, t):
-        """(obiekt, pozycja 3D, x, y, średnica_px, promień_świata) dla widocznych planet."""
+        """(obiekt, pozycja 3D, x, y, średnica_px, promień_świata) dla widocznych planet.
+
+        Liczone raz na klatkę (jednym rzutowaniem) i zapamiętywane – używa tego
+        zarówno draw_points, jak i draw_sprites.
+        """
+        key = (t, cam.yaw, cam.tilt, cam.zoom, cam.offset_x, tuple(cam.target), size)
+        if key == self._screen_key:
+            return self._screen
+        planets = self.planet_ids
+        pos = np.array([o.position_at(t) for o in planets], np.float32)
+        sx, sy, f, vis = cam.project(pos, size)
+        scale = cam.scale_px(size)
         out = []
-        for o in self.objects:
-            if o.id not in self.textures:
-                continue
-            pos = o.position_at(t)
-            x, y, f, vis = cam.project_one(pos, size)
-            if not vis:
-                continue
-            rw = self.planet_radius(o, cam)
-            d = 2 * rw * f * cam.scale_px(size)
-            out.append((o, pos, x, y, d, rw))
+        for i, o in enumerate(planets):
+            if vis[i]:
+                rw = self.planet_radius(o, cam)
+                out.append((o, pos[i], float(sx[i]), float(sy[i]), 2 * rw * float(f[i]) * scale, rw))
+        self._screen_key, self._screen = key, out
         return out
 
     def draw_points(self, layer, cam, size, t, alpha):
         sx, sy, f, vis = cam.project(self.bg, size)
         layer.add(sx[vis], sy[vis], self.bg_col[vis] * alpha)
         orbit_col = np.array([0.4, 0.6, 0.85], np.float32) * 0.3 * alpha
-        for pts in self.orbits:
-            sx, sy, f, vis = cam.project(pts, size)
-            layer.add(sx[vis], sy[vis], np.broadcast_to(orbit_col, (int(vis.sum()), 3)))
-        a = self.belt_a + t * 0.05
-        belt = np.stack([self.belt_r * np.cos(a), self.belt_y, -self.belt_r * np.sin(a)], -1)
+        sx, sy, f, vis = cam.project(self.orbit_pts, size)
+        layer.add(sx[vis], sy[vis], np.broadcast_to(orbit_col, (int(vis.sum()), 3)))
+        s = self.stride
+        a = self.belt_a[::s] + t * 0.05
+        br = self.belt_r[::s]
+        belt = np.stack([br * np.cos(a), self.belt_y[::s], -br * np.sin(a)], -1)
         sx, sy, f, vis = cam.project(belt, size)
-        layer.add(sx[vis], sy[vis], self.belt_col[vis] * alpha)
+        layer.add(sx[vis], sy[vis], self.belt_col[::s][vis] * (alpha * s))
 
         planets = self._planets_on_screen(cam, size, t)
         ring_front = None
         for o, pos, x, y, d, rw in planets:
             if o.id == "saturn":
                 sun_dir = -pos / max(np.linalg.norm(pos), 1e-6)
-                pts = self.rings.points(pos, rw, self.axes[o.id], t)
+                pts = self.rings.points(pos, rw, self.axes[o.id], t, self.stride)
                 rx, ry, rc, front = self.rings.visible(pts, pos, rw, cam, size, sun_dir, self.axes[o.id], layer.k)
                 soft = d * 2.27 > 120   # z bliska gładko (warstwa gazu), z daleka wystarczą punkty
                 ring_back = (rx[~front], ry[~front], rc[~front] * alpha, soft)
@@ -269,16 +285,24 @@ class SolarLevel(Level):
     def draw_sprites(self, frame, cam, t, alpha):
         size = frame.get_size()
         self.draw_objects(frame, cam, t, alpha)   # Słońce (sprite)
+        self._frame += 1
         for o, pos, x, y, d, rw in self._planets_on_screen(cam, size, t):
             di = int(min(max(d, 4), 0.7 * min(size)))
-            sun_dir = -pos / max(np.linalg.norm(pos), 1e-6)
-            # Kierunek Słońca i trzy osie planety – jedno przeliczenie do układu kamery.
-            vecs = np.vstack([sun_dir, *self.axes[o.id]]).astype(np.float32)
-            light, *axes_cam = cam.to_camera(vecs, relative=False)
-            light = light / max(np.linalg.norm(light), 1e-6)
-            look = LOOKS[o.id]
-            img = shade_planet(self.textures[o.id], di, light, axes_cam, look.spin * t, look.atmosphere)
-            surf = to_surface(img * alpha)
+            # Małe planety zmieniają się niezauważalnie – przeliczamy je co kilka klatek.
+            every = 1 if di >= 48 else (2 if di >= 20 else 3)
+            cached = self._shade_cache.get(o.id)
+            if cached and cached[1] == di and self._frame - cached[0] < every and alpha > 0.99:
+                surf = cached[2]
+            else:
+                sun_dir = -pos / max(np.linalg.norm(pos), 1e-6)
+                # Kierunek Słońca i trzy osie planety – jedno przeliczenie do układu kamery.
+                vecs = np.vstack([sun_dir, *self.axes[o.id]]).astype(np.float32)
+                light, *axes_cam = cam.to_camera(vecs, relative=False)
+                light = light / max(np.linalg.norm(light), 1e-6)
+                look = LOOKS[o.id]
+                img = shade_planet(self.textures[o.id], di, light, axes_cam, look.spin * t, look.atmosphere)
+                surf = to_surface(img * alpha)
+                self._shade_cache[o.id] = (self._frame, di, surf)
             frame.blit(surf, (int(x - di / 2), int(y - di / 2)), special_flags=pygame.BLEND_ADD)
             hit_r = di / 2 * (1.4 if o.id == "saturn" else 1.0)
             self.hits.append((o, x, y, max(hit_r, MIN_HIT_PX)))

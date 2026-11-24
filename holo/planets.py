@@ -193,11 +193,13 @@ class SaturnRings:
         b = b * (0.75 + 0.25 * np.sin(self.r * 60)) * rng.uniform(0.6, 1.0, n)
         self.bright = b.astype(np.float32)
 
-    def points(self, center: np.ndarray, radius: float, axes, t: float) -> np.ndarray:
+    def points(self, center: np.ndarray, radius: float, axes, t: float, stride: int = 1) -> np.ndarray:
         """Położenia cząstek w układzie sceny (pierścienie krążą – wewnętrzne szybciej)."""
         _, m, q = axes
-        a = self.a0 + t * 0.4 * (1.5 / self.r) ** 1.5
-        rr = self.r * radius
+        self._stride = stride
+        r = self.r[::stride]
+        a = self.a0[::stride] + t * 0.4 * (1.5 / r) ** 1.5
+        rr = r * radius
         return (center[None, :] + (rr * np.cos(a))[:, None] * m + (rr * np.sin(a))[:, None] * q).astype(np.float32)
 
     def visible(self, pts: np.ndarray, center: np.ndarray, radius: float, cam, size, sun_dir: np.ndarray,
@@ -220,6 +222,7 @@ class SaturnRings:
         perp = np.linalg.norm(w - along[:, None] * sun_dir[None, :], axis=1)
         shadow = (along < 0) & (perp < radius)
         light = np.where(shadow, 0.1, 1.0)
+        bright = self.bright[::getattr(self, "_stride", 1)][:len(pts)]
         # Jasność na piksel nie może zależeć od liczby cząstek: dzielimy przez ich gęstość
         # na ekranie (pole pierścieni w rzucie, w pikselach warstwy gwiazd).
         pole_cam = cam.to_camera(axes[0][None, :].astype(np.float32), relative=False)[0]
@@ -227,6 +230,6 @@ class SaturnRings:
         k = layer_k * layer_k
         area = math.pi * (SATURN_RINGS[-1][1] ** 2 - SATURN_RINGS[0][0] ** 2) * r_px * r_px * facing * k
         density = len(pts) / max(area, 1.0)
-        gain = 0.4 / max(density * float(self.bright.mean()), 0.4)
-        col = np.array([0.9, 0.82, 0.66], np.float32)[None, :] * (self.bright * light * gain)[:, None]
+        gain = 0.4 / max(density * float(bright.mean()), 0.4)
+        col = np.array([0.9, 0.82, 0.66], np.float32)[None, :] * (bright * light * gain)[:, None]
         return sx[keep], sy[keep], col[keep], ~behind[keep]

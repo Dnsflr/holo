@@ -48,20 +48,65 @@ def splat(buf: np.ndarray, sx: np.ndarray, sy: np.ndarray, cols: np.ndarray) -> 
     np.add.at(buf.reshape(-1), np.concatenate(idx_parts), np.concatenate(val_parts))
 
 
-class StarLayer:
-    """Bufor w obniżonej rozdzielczości, do którego poziomy dodają chmury punktów."""
+class Batch:
+    """Zbiera punkty (w układzie kamery) dla jednej warstwy i rysuje je jednym wywołaniem.
 
-    def __init__(self, size: tuple[int, int], render_scale: float, bilinear: bool = True):
+    Wiele małych wywołań numpy kosztuje więcej niż jedno duże – dlatego sceny
+    najpierw zbierają punkty, a rzutują i rysują je hurtem.
+    """
+
+    def __init__(self):
+        self.pts: list[np.ndarray] = []
+        self.cols: list[np.ndarray] = []
+
+    def add(self, pts: np.ndarray, cols: np.ndarray) -> None:
+        if len(pts):
+            self.pts.append(pts)
+            self.cols.append(cols)
+
+    def flush(self, cam, size, layer: "StarLayer") -> None:
+        if not self.pts:
+            return
+        pts = np.concatenate(self.pts)
+        cols = np.concatenate(self.cols)
+        self.pts, self.cols = [], []
+        sx, sy, _, vis = cam.perspective(pts, size)
+        layer.add(sx[vis], sy[vis], cols[vis])
+
+
+GLOW_DIV = 3        # poświata i gaz liczone w buforze 3× mniejszym
+GLOW_STRENGTH = 150  # siła poświaty (0–255)
+
+
+class StarLayer:
+    """Bufor punktów (gwiazd, cząstek) zamieniany co klatkę na obraz z poświatą.
+
+    Ścieżka na klatkę: punkty → bufor (numpy) → obraz; obraz pomniejszony 3× + "gaz"
+    (rozmyte światło rysowane od razu w małym buforze) → jedno powiększenie → dodane do obrazu.
+    """
+
+    def __init__(self, size: tuple[int, int], render_scale: float, bilinear: bool = False,
+                 dims: tuple[int, int] | None = None, with_gas: bool = True):
+        # Domyślnie bez interpolacji – ~6× szybciej; przy warstwie w rozdzielczości
+        # klatki "skakanie" gwiazd o piksel jest niewidoczne (GPU i tak łagodnie powiększa obraz).
         self.size = size
         self.splat = splat if bilinear else splat_nearest
-        self.k = render_scale
-        self.w = max(32, int(size[0] * render_scale))
-        self.h = max(32, int(size[1] * render_scale))
+        if dims is None:
+            dims = (max(32, int(size[0] * render_scale)), max(32, int(size[1] * render_scale)))
+        self.w, self.h = dims
+        self.k = self.w / size[0]
         self.buf = np.zeros((self.w, self.h, 3), np.float32)
+        self.u8 = np.zeros((self.w, self.h, 3), np.uint8)   # bufor do konwersji – bez alokacji co klatkę
         self.surface = pygame.Surface((self.w, self.h), 0, 32)
         self.used = False
-        # Opcjonalna druga warstwa w niższej rozdzielczości – miękki, rozmyty "gaz".
-        self.gas: StarLayer | None = None
+        self.small_size = (max(8, self.w // GLOW_DIV), max(8, self.h // GLOW_DIV))
+        # Miękki "gaz" – rysowany od razu w rozdzielczości poświaty.
+        self._gas = StarLayer(size, 0, dims=self.small_size, with_gas=False) if with_gas else None
+        self.gas: StarLayer | None = self._gas
+
+    def set_gas(self, enabled: bool) -> None:
+        """Bez gazu poziomy rysują wszystko w warstwie ostrej (szybciej, mniej miękko)."""
+        self.gas = self._gas if enabled else None
 
     def begin(self) -> None:
         self.buf.fill(0)
@@ -70,40 +115,50 @@ class StarLayer:
             self.gas.begin()
 
     def add(self, sx: np.ndarray, sy: np.ndarray, cols: np.ndarray) -> None:
-        """Dodaje punkty; sx, sy w pikselach pełnego ekranu."""
+        """Dodaje punkty; sx, sy w pikselach klatki, kolory 0..1."""
         if len(sx):
-            self.splat(self.buf, sx * self.k, sy * self.k, cols)
+            # Mnożenie przez 255 na punktach (tanio) zamiast na całym buforze.
+            self.splat(self.buf, sx * self.k, sy * self.k, np.asarray(cols, np.float32) * 255.0)
             self.used = True
 
     def clear_circle(self, cx: float, cy: float, r: float) -> None:
-        """Zeruje koło (np. cień czarnej dziury zasłania to, co za nim); współrzędne pełnego ekranu."""
+        """Zeruje koło (np. cień czarnej dziury zasłania to, co za nim); współrzędne klatki."""
         k = self.k
-        cx, cy, r = cx * k, cy * k, r * k
-        x0, x1 = max(0, int(cx - r)), min(self.w, int(cx + r) + 2)
-        y0, y1 = max(0, int(cy - r)), min(self.h, int(cy + r) + 2)
-        if x0 >= x1 or y0 >= y1:
-            return
-        xs = np.arange(x0, x1)[:, None] + 0.5
-        ys = np.arange(y0, y1)[None, :] + 0.5
-        inside = (xs - cx) ** 2 + (ys - cy) ** 2 <= r * r
-        self.buf[x0:x1, y0:y1][inside] = 0.0
+        kx, ky, kr = cx * k, cy * k, r * k
+        x0, x1 = max(0, int(kx - kr)), min(self.w, int(kx + kr) + 2)
+        y0, y1 = max(0, int(ky - kr)), min(self.h, int(ky + kr) + 2)
+        if x0 < x1 and y0 < y1:
+            xs = np.arange(x0, x1)[:, None] + 0.5
+            ys = np.arange(y0, y1)[None, :] + 0.5
+            inside = (xs - kx) ** 2 + (ys - ky) ** 2 <= kr * kr
+            self.buf[x0:x1, y0:y1][inside] = 0.0
         if self.gas is not None:
-            self.gas.clear_circle(cx / k, cy / k, r / k)
+            self.gas.clear_circle(cx, cy, r)
 
     def finish(self, glow: bool) -> pygame.Surface:
-        img = self._finish_own(glow)
-        if self.gas is not None and self.gas.used:
-            img.blit(self.gas._finish_own(True, strength=90), (0, 0), special_flags=pygame.BLEND_ADD)
-        return img
+        """Zamienia bufor na obraz klatki (z poświatą i gazem)."""
+        surf = self._to_surface()
+        gas_used = self.gas is not None and self.gas.used
+        if glow or gas_used:
+            if glow:
+                small = pygame.transform.smoothscale(surf, self.small_size)
+                small.fill((GLOW_STRENGTH,) * 3, special_flags=pygame.BLEND_MULT)
+            else:
+                small = pygame.Surface(self.small_size, 0, 32)
+            if gas_used:
+                small.blit(self.gas._to_surface(), (0, 0), special_flags=pygame.BLEND_ADD)
+            surf.blit(pygame.transform.smoothscale(small, (self.w, self.h)), (0, 0),
+                      special_flags=pygame.BLEND_ADD)
+        if (self.w, self.h) == tuple(self.size):
+            return surf
+        return pygame.transform.smoothscale(surf, self.size)
 
-    def _finish_own(self, glow: bool, strength: int = 150) -> pygame.Surface:
+    def _to_surface(self) -> pygame.Surface:
         b = self.buf
-        np.multiply(b, 255.0, out=b)
         np.minimum(b, 255.0, out=b)
-        pygame.surfarray.blit_array(self.surface, b.astype(np.uint8))
-        if glow:
-            add_glow(self.surface, strength=strength)
-        return pygame.transform.smoothscale(self.surface, self.size)
+        np.copyto(self.u8, b, casting="unsafe")
+        pygame.surfarray.blit_array(self.surface, self.u8)
+        return self.surface
 
 
 def add_glow(surface: pygame.Surface, strength: int = 150, factor: int = 6) -> None:

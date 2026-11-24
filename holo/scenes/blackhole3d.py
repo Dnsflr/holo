@@ -21,6 +21,7 @@ import numpy as np
 
 from ..catalog import CelestialObject, temp_to_rgb
 from ..levels import MIN_HIT_PX, Level
+from ..render import Batch
 from ..sprites import blit_scaled, star_sprite
 
 UNIT = 0.04                 # r_s w jednostkach sceny
@@ -88,7 +89,7 @@ class SStar:
         self.rot = kepler_rotation(math.radians(inc_deg), math.radians(node_deg), math.radians(argp_deg))
         self.color = temp_to_rgb(temp_k)
         self.size = size
-        self.path = kepler_position(a, e, period, 0.0, self.rot, np.linspace(0, period, 500, endpoint=False))
+        self.path = kepler_position(a, e, period, 0.0, self.rot, np.linspace(0, period, 200, endpoint=False))
 
     def at(self, t: float) -> np.ndarray:
         return kepler_position(self.a, self.e, self.period, self.phase, self.rot, t)[0]
@@ -151,13 +152,13 @@ class BlackHoleScene(Level):
         self.bg_col = (cols * rng.uniform(0.1, 0.6, (m, 1)) ** 2).astype(np.float32)
 
     # ---------------------------------------------------------- dysk w chwili t
-    def disk_state(self, t: float):
+    def disk_state(self, t: float, stride: int = 1):
         span = R_OUT - R_IN
-        r = R_IN + np.mod(self.r0 - R_IN - INFLOW * t, span)
+        r = R_IN + np.mod(self.r0[::stride] - R_IN - INFLOW * t, span)
         omega = OMEGA_IN * (r / R_IN) ** -1.5
-        a = self.a0 + omega * t
+        a = self.a0[::stride] + omega * t
         ca, sa = np.cos(a), np.sin(a)
-        pos = np.stack([r * ca, self.h, r * sa], -1)
+        pos = np.stack([r * ca, self.h[::stride], r * sa], -1)
         beta = BETA_IN * np.sqrt(R_IN / r)
         vel = np.stack([-sa * beta, np.zeros_like(r), ca * beta], -1)
         # Kolor z temperatury: najgoręcej przy wewnętrznej krawędzi.
@@ -169,7 +170,7 @@ class BlackHoleScene(Level):
         # Wygaszanie na brzegach (gaz pojawia się na zewnątrz i znika przy horyzoncie).
         edge = np.clip((r - R_IN) / (0.4 * UNIT), 0, 1) * np.clip((R_OUT - r) / (2.5 * UNIT), 0, 1)
         grav = np.sqrt(np.clip(1 - UNIT / r, 0, 1))
-        return pos, vel, col * (self.bright * edge * grav)[:, None]
+        return pos, vel, col * (self.bright[::stride] * edge * grav * stride)[:, None]
 
     # ------------------------------------------------------------- rysowanie
     def draw_points(self, layer, cam, size, t, alpha):
@@ -177,7 +178,9 @@ class BlackHoleScene(Level):
         bx, by, bf, bvis = cam.project_one((0.0, 0.0, 0.0), size)
         shadow_px = R_SHADOW * bf * cam.scale_px(size)
 
-        pos, vel, col = self.disk_state(t)
+        s = self.stride
+        sharp_mask = self.sharp[::s]
+        pos, vel, col = self.disk_state(t, s)
         cp = cam.to_camera(pos)
         cv = cam.to_camera(vel, relative=False)
         doppler = 1.0 / np.clip(1.0 - cv[:, 2], 0.3, None)
@@ -187,44 +190,56 @@ class BlackHoleScene(Level):
         behind = rel[:, 2] < 0
 
         gas = layer.gas or layer
+        sharp_batch, gas_batch = Batch(), Batch()
 
         def add_cam(points_cam, colors, target=layer):
-            sx, sy, f, vis = cam.perspective(points_cam, size)
-            target.add(sx[vis], sy[vis], colors[vis])
+            (gas_batch if target is gas and gas is not layer else sharp_batch).add(points_cam, colors)
 
-        def add_disk(points_cam, colors, sharp):
+        def flush():
+            sharp_batch.flush(cam, size, layer)
+            gas_batch.flush(cam, size, gas)
+
+        def add_disk(points_cam, colors, sharp, sharp_too=True):
             # Gaz: miękko w warstwie rozmytej + część cząstek ostro dla szczegółu.
-            add_cam(points_cam, colors * GAS_WEIGHT * (gas.k / layer.k) ** 2, gas)
-            add_cam(points_cam[sharp], colors[sharp] * 0.6)
+            if gas is not layer:
+                add_cam(points_cam, colors * GAS_WEIGHT * (gas.k / layer.k) ** 2, gas)
+                if sharp_too:
+                    add_cam(points_cam[sharp], colors[sharp] * 0.6)
+            else:
+                add_cam(points_cam, colors * 0.45)
 
         def add_lensed(rel_pts, colors, sharp=None):
             """Dodaje oba obrazy punktów leżących za czarną dziurą (poza cieniem)."""
             img1, img2, mu1, mu2 = lens(rel_pts)
-            for img, mu in ((img1, mu1), (img2, mu2)):
+            for primary, img, mu in ((True, img1, mu1), (False, img2, mu2)):
                 keep = np.hypot(img[:, 0], img[:, 1]) > R_SHADOW * 1.02
                 if sharp is None:
                     add_cam(img[keep] + bh, colors[keep] * mu[keep, None])
                 else:
-                    add_disk(img[keep] + bh, colors[keep] * mu[keep, None], sharp[keep])
+                    # Słabszy obraz wtórny wystarczy narysować miękko.
+                    add_disk(img[keep] + bh, colors[keep] * mu[keep, None], sharp[keep], sharp_too=primary)
 
         # 1) Tło gwiazd za czarną dziurą też jest soczewkowane.
-        bg_rel = cam.to_camera(self.bg) - bh
+        bg_rel = cam.to_camera(self.bg[::s]) - bh
         bg_behind = bg_rel[:, 2] < 0
-        add_lensed(bg_rel[bg_behind], self.bg_col[bg_behind] * alpha)
-        add_cam(bg_rel[~bg_behind] + bh, self.bg_col[~bg_behind] * alpha)
+        bg_col = self.bg_col[::s] * s
+        add_lensed(bg_rel[bg_behind], bg_col[bg_behind] * alpha)
+        add_cam(bg_rel[~bg_behind] + bh, bg_col[~bg_behind] * alpha)
 
         # 2) Tylna część dysku (soczewkowana) i tylne odcinki orbit.
-        add_lensed(rel[behind], col[behind], self.sharp[behind])
+        add_lensed(rel[behind], col[behind], sharp_mask[behind])
         orbit_back, orbit_front = self._orbit_points(cam, bh, alpha)
         add_cam(orbit_back[0], orbit_back[1])
 
         # 3) Cień zasłania wszystko, co jest za nim.
+        flush()
         if bvis and alpha > 0.3:
             layer.clear_circle(bx, by, shadow_px)
 
         # 4) Przednia część dysku i orbit.
-        add_disk(cp[~behind], col[~behind], self.sharp[~behind])
+        add_disk(cp[~behind], col[~behind], sharp_mask[~behind])
         add_cam(orbit_front[0], orbit_front[1])
+        flush()
 
         # 5) Pierścień fotonowy – jaśniejszy po stronie zbliżającego się gazu.
         if bvis:
@@ -237,17 +252,16 @@ class BlackHoleScene(Level):
             layer.add(bx + rr * np.cos(th), by - rr * np.sin(th), ring_col)
 
     def _orbit_points(self, cam, bh, alpha):
-        back_p, back_c, front_p, front_c = [], [], [], []
-        for i, s in enumerate(self.sstars):
-            cp = cam.to_camera(s.path)
-            col = np.array(s.color, np.float32) * (0.22 if i == 0 else 0.08) * alpha
-            behind = (cp[:, 2] - bh[2]) < 0
-            back_p.append(cp[behind])
-            back_c.append(np.broadcast_to(col, (int(behind.sum()), 3)))
-            front_p.append(cp[~behind])
-            front_c.append(np.broadcast_to(col, (int((~behind).sum()), 3)))
-        return ((np.concatenate(back_p), np.concatenate(back_c)),
-                (np.concatenate(front_p), np.concatenate(front_c)))
+        if not hasattr(self, "_paths"):
+            # Wszystkie tory w jednej tablicy (S2 jaśniej) – jedno przeliczenie na klatkę.
+            self._paths = np.concatenate([s.path for s in self.sstars])
+            self._path_cols = np.concatenate([
+                np.tile(np.array(s.color, np.float32) * (0.22 if i == 0 else 0.08), (len(s.path), 1))
+                for i, s in enumerate(self.sstars)]).astype(np.float32)
+        cp = cam.to_camera(self._paths)
+        behind = (cp[:, 2] - bh[2]) < 0
+        cols = self._path_cols * alpha
+        return (cp[behind], cols[behind]), (cp[~behind], cols[~behind])
 
     def draw_sprites(self, frame, cam, t, alpha):
         size = frame.get_size()
