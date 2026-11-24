@@ -168,7 +168,7 @@ class Comets:
 
 class Scene:
     def __init__(self, cfg, rng: np.random.Generator):
-        self.galaxy = Galaxy(cfg.stars, cfg.arms, rng)
+        self.galaxy = Galaxy(cfg.stars, 2, rng)
         self.orbiters = DEFAULT_ORBITERS
         self.comets = Comets(rng)
 

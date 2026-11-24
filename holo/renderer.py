@@ -66,7 +66,7 @@ class ViewRenderer:
         az = self.azimuth + precession
 
         # Gwiazdy galaktyki z wygładzaniem w czasie.
-        decay = cfg.trail
+        decay = 0.6
         sx, sy, f = project(frame.star_pts, az, tilt, rs, self.scale)
         self.buf *= decay
         splat(self.buf, sx, sy, frame.star_cols * (f[:, None] * (1 - decay)))

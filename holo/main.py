@@ -1,4 +1,4 @@
-"""Pętla główna: okno, klawisze, składanie widoków na ekranie."""
+"""Pętla główna: okno, mysz i klawisze, rysowanie klatki."""
 from __future__ import annotations
 
 import math
@@ -7,38 +7,41 @@ import numpy as np
 import pygame
 
 from .config import Config, parse_args
-from .layout import make_layout, place
+from .output import Output
 from .renderer import ViewRenderer
 from .scene import Scene
+from .ui import Cursor, draw_calibration, text
 
-PRECESSION_SPEED = 0.04  # powolne "kołysanie" osi galaktyki (rad/s)
-
-
-def build_views(cfg: Config, screen: pygame.Surface, rng: np.random.Generator):
-    slots = make_layout(cfg.mode, screen.get_size(), cfg.gap, cfg.flip)
-    renderers = [ViewRenderer(s.size, s.azimuth, cfg, rng) for s in slots]
-    return slots, renderers
+PRECESSION_SPEED = 0.04
 
 
 def run(cfg: Config) -> None:
-    cfg.trail = min(max(cfg.trail, 0.0), 0.95)
-
     pygame.init()
-    pygame.display.set_caption("Holo – galaktyka")
+    pygame.display.set_caption("Holo – Droga Mleczna")
     if cfg.windowed:
         screen = pygame.display.set_mode((cfg.width, cfg.height))
     else:
         screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        pygame.mouse.set_visible(False)
+    size = screen.get_size()
+    out = Output(screen, cfg.flip_h, cfg.flip_v)
+    frame = pygame.Surface(size, 0, 32)
+
+    # W oknie (testy na PC) kursor podąża za myszą systemową. Na pełnym ekranie
+    # mysz jest "przechwycona" i liczy się tylko jej ruch – pozycja systemowego
+    # kursora nie ma sensu, bo widz patrzy na odbicie.
+    relative_mouse = not cfg.windowed
+    pygame.mouse.set_visible(False)
+    if relative_mouse:
+        pygame.event.set_grab(True)
+    cursor = Cursor(size)
 
     rng = np.random.default_rng(cfg.seed)
     scene = Scene(cfg, rng)
-    slots, renderers = build_views(cfg, screen, rng)
-    font = pygame.font.Font(None, 24)
-    clock = pygame.time.Clock()
+    view = ViewRenderer(int(min(size) * 0.95), 0.0, cfg, rng)
 
+    clock = pygame.time.Clock()
     t = 0.0
-    tilt = math.radians(cfg.tilt_deg)
+    calibrating = cfg.calibrate
     paused = False
     frame_no = 0
     running = True
@@ -47,19 +50,23 @@ def run(cfg: Config) -> None:
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 running = False
+            elif ev.type == pygame.MOUSEMOTION:
+                if relative_mouse:
+                    cursor.move_by(*ev.rel)
+                else:
+                    cursor.move_to(out.to_logical(ev.pos))
             elif ev.type == pygame.KEYDOWN:
                 k = ev.key
-                if k in (pygame.K_ESCAPE, pygame.K_q):
+                if k == pygame.K_q:
                     running = False
+                elif k == pygame.K_c:
+                    calibrating = not calibrating
+                elif k == pygame.K_h and calibrating:
+                    out.flip_h = not out.flip_h
+                elif k == pygame.K_v and calibrating:
+                    out.flip_v = not out.flip_v
                 elif k == pygame.K_SPACE:
                     paused = not paused
-                elif k == pygame.K_m:
-                    cfg.mode = "single" if cfg.mode == "pyramid" else "pyramid"
-                    slots, renderers = build_views(cfg, screen, rng)
-                elif k == pygame.K_UP:
-                    tilt = min(tilt + math.radians(5), math.radians(85))
-                elif k == pygame.K_DOWN:
-                    tilt = max(tilt - math.radians(5), math.radians(-85))
                 elif k in (pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS):
                     cfg.speed = min(cfg.speed * 1.25, 8.0)
                 elif k in (pygame.K_MINUS, pygame.K_KP_MINUS):
@@ -69,31 +76,32 @@ def run(cfg: Config) -> None:
                 elif k == pygame.K_f:
                     cfg.show_fps = not cfg.show_fps
 
-        dt = clock.tick(cfg.fps) / 1000.0
+        real_dt = clock.tick(cfg.fps) / 1000.0
         if cfg.frames:  # tryb testowy: stały krok czasu
-            dt = 1.0 / cfg.fps
-        dt = 0.0 if paused else min(dt, 0.1) * cfg.speed
+            real_dt = 1.0 / cfg.fps
+        real_dt = min(real_dt, 0.1)
+        dt = 0.0 if paused else real_dt * cfg.speed
         t += dt
-        precession = PRECESSION_SPEED * t
+        cursor.update(real_dt)
 
-        frame = scene.update(t, dt, precession)
-        screen.fill((0, 0, 0))
-        for slot, renderer in zip(slots, renderers):
-            img = place(renderer.render(frame, t, tilt, precession), slot)
-            # Dodawanie zamiast nadpisywania – rogi widoków mogą na siebie zachodzić.
-            screen.blit(img, slot.pos, special_flags=pygame.BLEND_ADD)
-
+        frame.fill((0, 0, 0))
+        if calibrating:
+            draw_calibration(frame, out.flip_h, out.flip_v)
+        else:
+            precession = PRECESSION_SPEED * t
+            img = view.render(scene.update(t, dt, precession), t, math.radians(30), precession)
+            frame.blit(img, img.get_rect(center=(size[0] // 2, size[1] // 2)))
+        cursor.draw(frame)
         if cfg.show_fps:
-            txt = font.render(f"{clock.get_fps():.0f} FPS", True, (90, 90, 90))
-            screen.blit(txt, (8, 8))
+            text(frame, f"{clock.get_fps():.0f} FPS", 24, (90, 90, 90), topleft=(8, 8))
 
-        pygame.display.flip()
+        out.present(frame)
         frame_no += 1
         if cfg.frames and frame_no >= cfg.frames:
             running = False
 
     if cfg.screenshot:
-        pygame.image.save(screen, cfg.screenshot)
+        pygame.image.save(frame, cfg.screenshot)
     pygame.quit()
 
 
