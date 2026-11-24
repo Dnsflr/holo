@@ -78,6 +78,13 @@ class MilkyWay:
         add(rng.normal(0, 0.8, ng), rng.normal(0, 0.8, ng), rng.normal(0, 0.55, ng),
             WARM, rng.uniform(0.3, 0.8, ng))
 
+        # --- Gromada jądrowa: gęsty rój gwiazd wokół Sgr A* (widoczny po przybliżeniu) ---
+        nn = int(n * 0.03)
+        rn = np.abs(rng.normal(0, 0.07, nn)) + 0.004
+        tn = rng.uniform(0, 2 * math.pi, nn)
+        add(rn * np.cos(tn), rn * np.sin(tn), rng.normal(0, 0.03, nn),
+            WARM * rng.uniform(0.9, 1.15, (nn, 1)), rng.uniform(0.15, 0.9, nn) ** 2)
+
         # --- Ramiona spiralne ---
         na = int(n * 0.50)
         weights = np.array([a[2] for a in ARMS])

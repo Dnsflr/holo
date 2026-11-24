@@ -10,6 +10,7 @@ import math
 import numpy as np
 import pygame
 
+from .blackhole import BlackHole
 from .camera import Camera
 from .galaxy import MilkyWay
 from .render import StarLayer
@@ -45,6 +46,7 @@ class GalaxyLevel(Level):
     def __init__(self, cfg, rng: np.random.Generator):
         self.galaxy = MilkyWay(cfg.stars, rng)
         self.core = radial_glow(256, (1.0, 0.82, 0.55), core=0.12, halo=0.45, core_w=0.85, halo_w=0.3)
+        self.black_hole = BlackHole()
 
     def home_yaw(self) -> float:
         # Słońce (x = -8,2 kpc) od strony widza, tak jak na typowych mapach galaktyki.
@@ -59,6 +61,12 @@ class GalaxyLevel(Level):
     def draw_sprites(self, frame, cam, t, alpha):
         size = frame.get_size()
         cx, cy, f, vis = cam.project_one((0.0, 0.0, 0.0), size)
-        if vis:
-            d = 2 * 2.2 * cam.scale_px(size) * f
-            blit_scaled(frame, self.core, (cx, cy), d, alpha * (0.85 + 0.08 * math.sin(t * 1.3)))
+        if not vis:
+            return
+        # Poświata jądra gaśnie przy dużym przybliżeniu, żeby nie zalać czarnej dziury.
+        core_k = min(1.0, max(0.0, 1.4 - cam.zoom / 8))
+        d = 2 * 2.2 * cam.scale_px(size) * f
+        blit_scaled(frame, self.core, (cx, cy), d, alpha * core_k * (0.85 + 0.08 * math.sin(t * 1.3)))
+        # Sgr A*: na widoku całej galaktyki mały punkt, po przybliżeniu pełny obraz.
+        bh_d = min(9.0 * cam.zoom * f, 0.75 * min(size))
+        self.black_hole.draw(frame, (cx, cy), bh_d, t, alpha * min(1.0, 0.35 + cam.zoom / 12))
