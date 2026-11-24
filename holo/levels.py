@@ -21,7 +21,7 @@ from .galaxy import MilkyWay
 from .render import StarLayer
 from .sprites import (blit_scaled, cluster_sprite, nebula_sprite, planet_sprite, radial_glow,
                       star_sprite, sun_sprite)
-from .ui import DIM, scaled, text
+from .ui import DIM, font, scaled, text
 
 MIN_HIT_PX = 16  # najmniejszy promień "trafienia" kliknięciem
 
@@ -53,6 +53,7 @@ class Level:
         self.objects = [o for o in catalog if o.level == self.key]
         self.sprites = {o.id: make_sprite(o) for o in self.objects}
         self.hits: list[tuple[CelestialObject, float, float, float]] = []
+        self.selected: CelestialObject | None = None  # ustawiane przez App
 
     # --- kamera ---
     def make_camera(self) -> Camera:
@@ -139,17 +140,28 @@ class GalaxyLevel(Level):
         # Czarna dziura nie ma sprite'a w draw_objects – poprawiamy jej obszar trafienia.
         self.hits = [(o, x, y, max(bh_d * 0.3, MIN_HIT_PX) if o.kind == "black_hole" else r)
                      for (o, x, y, r) in self.hits]
-        self._draw_sun_marker(frame, alpha)
+        self.draw_markers(frame, alpha, t)
 
-    def _draw_sun_marker(self, frame, alpha):
-        """Delikatny okrąg i podpis przy Słońcu – żeby widz od razu wiedział, gdzie jesteśmy."""
+    def draw_markers(self, frame, alpha, t):
+        """Stałe znaczniki i podpisy obiektów na mapie – widz od razu wie, co klikać."""
+        h = frame.get_height()
         for o, x, y, r in self.hits:
-            if o.id == "sun":
-                h = frame.get_height()
-                ring = int(max(r * 1.6, h * 0.022))
-                pygame.draw.circle(frame, scaled((255, 220, 140), 0.55 * alpha), (int(x), int(y)), ring, 1)
-                text(frame, "Jesteśmy tutaj", max(16, h // 42), scaled((255, 220, 140), 0.8 * alpha),
-                     center=(int(x), int(y + ring + h * 0.02)))
+            if not o.label or o is self.selected or r > h * 0.12:
+                continue
+            col = (255, 220, 140) if o.kind == "system" else (150, 215, 255)
+            ring = int(max(r * 1.5, h * 0.024) * (1 + 0.06 * math.sin(t * 2.2)))
+            pygame.draw.circle(frame, scaled(col, 0.5 * alpha), (int(x), int(y)), ring, 1)
+            size = max(16, h // 40)
+            crowded = any(other is not o and other.label and math.hypot(ox - x, oy - y) < ring * 3.5
+                          for other, ox, oy, _ in self.hits)
+            if crowded and o.kind != "system":
+                # Obok innego znacznika (Krab jest blisko Słońca) – podpis z boku.
+                img = font(size).render(o.label, True, scaled(col, 0.85 * alpha))
+                frame.blit(img, (int(x + ring + h * 0.012), int(y - img.get_height() / 2)))
+            elif crowded:
+                text(frame, o.label, size, scaled(col, 0.85 * alpha), center=(int(x), int(y - ring - h * 0.02)))
+            else:
+                text(frame, o.label, size, scaled(col, 0.85 * alpha), center=(int(x), int(y + ring + h * 0.02)))
 
 
 class SolarLevel(Level):

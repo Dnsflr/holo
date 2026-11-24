@@ -121,3 +121,19 @@ def test_scena_pulsara_klikanie_pulsara_i_mglawicy(app):
     assert app.selected.id == "crab_pulsar"
     app.click((x + 120, y))
     assert app.selected is None or app.selected.id == "crab_nebula"
+
+
+def test_tryb_pokazowy_odwiedza_sceny(app):
+    cursor = Cursor(SIZE)
+    app.cfg.tour_after = 1.0
+    app.idle = 5.0
+    visited = set()
+    for _ in range(30 * 120):           # do 2 minut pokazu
+        app.update(1 / 30, 1 / 30, cursor)
+        app.idle = 5.0                  # nikt nie rusza myszą
+        visited.add(app.current)
+        if {"blackhole", "crab"} <= visited:
+            break
+    app.cfg.tour_after = 0
+    app.input_activity()
+    assert {"blackhole", "crab"} <= visited

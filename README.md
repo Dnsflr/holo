@@ -2,29 +2,31 @@
 
 Program na Raspberry Pi wyświetlający **Drogę Mleczną** do projekcji „holograficznej”:
 ekran leży na dole, a obraz odbija się w plexi ustawionym pod kątem 45° (efekt
-**Pepper's ghost**). Widz wybiera myszą obiekty, a kamera płynnie do nich podlatuje
-i pokazuje kartę z prawdziwymi parametrami.
+**Pepper's ghost**). Obraz obraca się przeciąganiem myszą, a z mapy galaktyki
+wchodzi się do trzech szczegółowych scen 3D.
 
 ![podgląd](docs/preview.png)
 
 ## Co jest w środku
 
-- **Droga Mleczna** – 20 000 gwiazd: poprzeczka, 4 ramiona spiralne, Ramię Oriona ze
-  Słońcem, pasy pyłu, różowe obszary narodzin gwiazd.
-- **Sagittarius A\*** – animowana czarna dziura w centrum (dysk akrecyjny, pierścień
-  fotonowy, soczewkowanie).
-- **Trzy poziomy**: Droga Mleczna → Okolica Słońca → Układ Słoneczny.
-  Klikasz Słońce dwa razy, żeby zejść poziom niżej.
-- **28 obiektów** z prawdziwymi danymi: mgławice (Carina, Orzeł, Laguna, Oriona), gromady
-  (Omega Centauri, M13, Plejady), gwiazdy (Syriusz, Betelgeza, Rigel, Proxima…), planety.
-- **Tryb pokazowy** – po minucie bez ruchu myszy program sam oprowadza po obiektach.
+- **Mapa Drogi Mlecznej** – 20 000 gwiazd: poprzeczka, 4 ramiona spiralne, Ramię Oriona.
+  Trzy klikalne miejsca: czarna dziura, Pulsar w Krabie i Słońce.
+- **Sagittarius A\*** – dysk akrecyjny 3D z efektem Dopplera, soczewkowanie grawitacyjne
+  (obraz tylnej części dysku nad i pod cieniem), cień i pierścień fotonowy, gwiazda S2
+  i inne gwiazdy S na orbitach Keplera.
+- **Pulsar w Krabie** – wirująca gwiazda neutronowa z wiązkami (błyska, gdy wiązka
+  omiata widza), liniami pola magnetycznego, torusem i dżetami w Mgławicy Kraba.
+- **Układ Słoneczny** – Słońce, 8 planet i pas planetoid.
+- Każdy obiekt ma kartę z **prawdziwymi danymi**.
+- **Tryb pokazowy** – po minucie bez ruchu myszy program sam odwiedza wszystkie sceny.
 
 ## Obsługa
 
 | Akcja | Działanie |
 |---|---|
-| lewy przycisk na obiekcie | wybór: przybliżenie i karta z parametrami |
-| ponowne kliknięcie (Słońce) | wejście poziom niżej |
+| przeciąganie lewym przyciskiem | obrót (w bok) i pochylenie (góra/dół), z bezwładnością |
+| kliknięcie obiektu | przybliżenie i karta z parametrami |
+| ponowne kliknięcie (na mapie) | wejście do sceny 3D |
 | klik w pustą przestrzeń | odznaczenie |
 | prawy przycisk / `Esc` | wstecz |
 | kółko myszy | przybliżanie / oddalanie |
@@ -93,12 +95,14 @@ znajdziesz w Wikipedii przy każdym obiekcie.
 
 ```
 holo/
-  main.py       – pętla główna, nawigacja (wybór, przejścia między poziomami, tryb pokazowy)
-  levels.py     – poziomy: Droga Mleczna, Okolica Słońca, Układ Słoneczny
+  main.py       – pętla główna, nawigacja (wybór, obracanie, przejścia, tryb pokazowy)
+  levels.py     – mapa Drogi Mlecznej i Układ Słoneczny
+  scenes/blackhole3d.py – scena 3D czarnej dziury (dysk, Doppler, soczewkowanie, gwiazdy S)
+  scenes/crab.py        – scena 3D Pulsara w Krabie
   galaxy.py     – generator Drogi Mlecznej
-  blackhole.py  – animacja Sagittarius A*
+  blackhole.py  – mały animowany znacznik Sgr A* na mapie
   catalog.py    – wczytywanie katalogu obiektów, przeliczanie współrzędnych
-  camera.py     – kamera 3D z płynnymi lotami
+  camera.py     – kamera 3D: płynne loty, obracanie myszą z bezwładnością
   render.py     – szybkie rysowanie gwiazd (numpy) i poświata
   sprites.py    – obrazki gwiazd, mgławic, gromad, planet
   ui.py         – kursor, karta informacji, podpisy, kalibracja

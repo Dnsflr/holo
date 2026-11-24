@@ -41,6 +41,7 @@ class CelestialObject:
     orbit_w: float = 0.0                 # prędkość kątowa [rad/s]
     phase: float = 0.0
     ring: bool = False
+    label: str | None = None             # stały podpis na mapie (np. „Czarna dziura”)
     mover: Callable[[float], np.ndarray] | None = None  # własny ruch nadany przez scenę (np. S2)
     extra: dict = field(default_factory=dict)
 
@@ -105,6 +106,7 @@ def _from_dict(d: dict) -> CelestialObject:
         params=[tuple(p) for p in d["params"]], description=d["description"],
         pos=np.zeros(3, np.float32), color=color, size=d.get("size", 1.0),
         zoom=d.get("zoom", 4.0), enter=d.get("enter"), ring=d.get("ring", False),
+        label=d.get("label"),
     )
     if d["level"] == "galaxy":
         if "pos_kpc" in d:

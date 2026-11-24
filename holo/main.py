@@ -20,7 +20,8 @@ from .ui import (Cursor, InfoCard, draw_breadcrumb, draw_calibration, draw_highl
 HOME = "galaxy"  # mapa – z niej wchodzi się do scen, do niej się wraca
 TRANSITION_S = 1.6     # czas przejścia między poziomami
 CARD_OFFSET = -0.17    # o ile przesunąć obraz w lewo, gdy karta jest widoczna
-TOUR_STEP_S = 14.0     # tryb pokazowy: co ile sekund następny obiekt
+# Tryb pokazowy: obiekt na mapie → co pokazać w jego scenie.
+TOUR = [("sgr_a", ["sgr_a_detail", "s2"]), ("crab", ["crab_pulsar", "crab_nebula"]), ("sun", ["earth", "saturn"])]
 DRAG_THRESHOLD_PX = 6  # ruch myszy z wciśniętym przyciskiem większy niż to = przeciąganie, nie klik
 
 
@@ -65,8 +66,9 @@ class App:
         self.transition: dict | None = None
         self.t = 0.0
         self.idle = 0.0
-        self.tour_index = -1
         self.touring = False
+        self.tour_steps: list = []
+        self.tour_wait = 0.0
         self.pressed = False      # lewy przycisk wciśnięty
         self.drag_travel = 0.0    # ile pikseli przejechała mysz od wciśnięcia
         self.last_real_dt = 1 / 30
@@ -82,11 +84,13 @@ class App:
 
     def select(self, obj: CelestialObject) -> None:
         self.selected = obj
+        self.level.selected = obj
         self.card.show(obj)
         self.cam.fly_to(target=obj.position_at(self.t), zoom=obj.zoom, offset_x=CARD_OFFSET)
 
     def deselect(self) -> None:
         self.selected = None
+        self.level.selected = None
         self.card.hide()
         lv = self.level
         self.cam.fly_to(target=(0.0, 0.0, 0.0), zoom=lv.home_zoom, offset_x=0.0)
@@ -163,6 +167,7 @@ class App:
 
     def _start_transition(self, to: str, then_select: CelestialObject | None) -> None:
         self.selected = None
+        self.level.selected = None
         self.hovered = None
         self.card.hide()
         self.transition = {"from": self.current, "to": to, "p": 0.0, "select": then_select}
@@ -192,12 +197,32 @@ class App:
         self.idle = 0.0
         self.touring = False
 
-    def _tour_step(self) -> None:
-        objs = self.level.objects
-        if not objs or self.transition:
-            return
-        self.tour_index = (self.tour_index + 1) % len(objs)
-        self.select(objs[self.tour_index])
+    def _build_tour(self) -> list[tuple[str, str | None, float]]:
+        """Scenariusz pokazu: (akcja, id obiektu, ile sekund trwa ten krok)."""
+        steps: list[tuple[str, str | None, float]] = []
+        if self.selected is not None:
+            steps.append(("back", None, 2.0))
+        if self.current != HOME:
+            steps.append(("back", None, 3.0))
+        for map_id, inner in TOUR:
+            steps.append(("select", map_id, 7.0))
+            steps.append(("enter", None, 6.0))
+            for obj_id in inner:
+                steps.append(("select", obj_id, 10.0))
+            steps.append(("back", None, 2.0))   # odznacz
+            steps.append(("back", None, 4.0))   # wróć na mapę
+        return steps
+
+    def _tour_do(self, action: str, obj_id: str | None) -> None:
+        if action == "select":
+            obj = self.level.find(obj_id)
+            if obj is not None:
+                self.select(obj)
+        elif action == "enter":
+            if self.selected is not None and self.selected.enter:
+                self.descend(self.selected)
+        elif action == "back":
+            self.back()
 
     # ----------------------------------------------------------- aktualizacja
     def update(self, dt: float, real_dt: float, cursor: Cursor) -> None:
@@ -207,15 +232,16 @@ class App:
         self.card.update(real_dt)
 
         tour_after = self.cfg.tour_after
-        if tour_after > 0 and self.idle > tour_after:
-            if not self.touring:
+        if tour_after > 0 and self.idle > tour_after and not self.transition:
+            if not self.touring or not self.tour_steps:
                 self.touring = True
-                self.tour_timer = 0.0
-                self._tour_step()
-            self.tour_timer += real_dt
-            if self.tour_timer > TOUR_STEP_S:
-                self.tour_timer = 0.0
-                self._tour_step()
+                self.tour_steps = self._build_tour()
+                self.tour_wait = 0.0
+            self.tour_wait -= real_dt
+            if self.tour_wait <= 0 and self.tour_steps:
+                action, obj_id, duration = self.tour_steps.pop(0)
+                self._tour_do(action, obj_id)
+                self.tour_wait = duration
 
         if self.transition:
             tr = self.transition

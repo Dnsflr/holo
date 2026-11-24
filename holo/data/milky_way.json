@@ -36,7 +36,8 @@
         ]
       ],
       "description": "Czarna dziura w samym centrum Drogi Mlecznej, 4 mln razy cięższa od Słońca. Kliknij ją jeszcze raz, aby zobaczyć ją z bliska.",
-      "enter": "blackhole"
+      "enter": "blackhole",
+      "label": "Czarna dziura"
     },
     {
       "id": "sun",
@@ -69,7 +70,8 @@
           "ok. 230 mln lat"
         ]
       ],
-      "description": "Jesteśmy tutaj – mniej więcej w połowie drogi od centrum do krawędzi galaktyki. Kliknij Słońce jeszcze raz, aby zobaczyć Układ Słoneczny."
+      "description": "Jesteśmy tutaj – mniej więcej w połowie drogi od centrum do krawędzi galaktyki. Kliknij Słońce jeszcze raz, aby zobaczyć Układ Słoneczny.",
+      "label": "Jesteśmy tutaj"
     },
     {
       "id": "crab",
@@ -106,7 +108,8 @@
           "ok. 30 na sekundę"
         ]
       ],
-      "description": "W 1054 r. chińscy astronomowie zobaczyli „gwiazdę gościa” widoczną nawet w dzień. To wybuchała gwiazda – została po niej mgławica i wirująca gwiazda neutronowa. Kliknij jeszcze raz, aby zobaczyć ją z bliska."
+      "description": "W 1054 r. chińscy astronomowie zobaczyli „gwiazdę gościa” widoczną nawet w dzień. To wybuchała gwiazda – została po niej mgławica i wirująca gwiazda neutronowa. Kliknij jeszcze raz, aby zobaczyć ją z bliska.",
+      "label": "Pulsar w Krabie"
     },
     {
       "id": "crab_pulsar",

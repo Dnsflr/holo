@@ -177,7 +177,7 @@ def draw_hints(surface: pygame.Surface, can_go_back: bool, alpha: float) -> None
     if alpha <= 0.02:
         return
     w, h = surface.get_size()
-    msg = "Kliknij obiekt, aby poznać szczegóły"
+    msg = "Kliknij obiekt   •   przeciągnij, aby obrócić"
     if can_go_back:
         msg += "   •   prawy przycisk: wstecz"
     text(surface, msg, max(14, h // 46), scaled(DIM, alpha * 0.8), topleft=(w // 40, h - h // 16))
