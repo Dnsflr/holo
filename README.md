@@ -16,20 +16,26 @@ wchodzi się do trzech szczegółowych scen 3D.
   i inne gwiazdy S na orbitach Keplera.
 - **Pulsar w Krabie** – wirująca gwiazda neutronowa z wiązkami (błyska, gdy wiązka
   omiata widza), liniami pola magnetycznego, torusem i dżetami w Mgławicy Kraba.
-- **Układ Słoneczny** – Słońce, 8 planet i pas planetoid.
+- **Układ Słoneczny** – Słońce, 8 planet w 3D (oświetlone przez Słońce – widać fazy,
+  obracają się wokół prawdziwie nachylonych osi), pierścienie Saturna z cząstek
+  z przerwą Cassiniego i cieniem planety, pas planetoid.
 - Każdy obiekt ma kartę z **prawdziwymi danymi**.
 - **Tryb pokazowy** – po minucie bez ruchu myszy program sam odwiedza wszystkie sceny.
+- **Domyślnie bez napisów** – widać tylko grafikę, a karta z parametrami pojawia się po
+  kliknięciu. Klikalne obiekty delikatnie „oddychają” poświatą. Napisy pomocnicze
+  (nazwy, podpisy, podpowiedzi) włącza `--labels` albo klawisz `t`.
 
 ## Obsługa
 
 | Akcja | Działanie |
 |---|---|
 | przeciąganie lewym przyciskiem | obrót (w bok) i pochylenie (góra/dół), z bezwładnością |
-| kliknięcie obiektu | przybliżenie i karta z parametrami |
-| ponowne kliknięcie (na mapie) | wejście do sceny 3D |
+| kliknięcie obiektu na mapie | wlot do sceny 3D i karta głównego obiektu (z napisami: najpierw karta, drugie kliknięcie = wejście) |
+| kliknięcie obiektu w scenie | przybliżenie i karta z parametrami |
 | klik w pustą przestrzeń | odznaczenie |
 | prawy przycisk / `Esc` | wstecz |
 | kółko myszy | przybliżanie / oddalanie |
+| `t` | napisy pomocnicze wł./wył. |
 | `c` | ekran kalibracji odbicia (`h`, `v` – odbicia) |
 | `spacja` | pauza |
 | `+` / `-` | prędkość animacji |
@@ -71,6 +77,7 @@ python3 -m holo --flip-v --render-scale 0.4 --stars 12000
 | Opcja | Opis |
 |---|---|
 | `--flip-h`, `--flip-v` | odbicie obrazu pod plexi (ustal przez `--calibrate`) |
+| `--labels` | napisy pomocnicze (nazwy, podpisy, podpowiedzi) |
 | `--stars 20000` | liczba gwiazd galaktyki |
 | `--render-scale 0.5` | rozdzielczość renderowania gwiazd (mniej = szybciej) |
 | `--tour-after 60` | po ilu sekundach bezczynności startuje tryb pokazowy (0 = nigdy) |
@@ -104,8 +111,9 @@ holo/
   catalog.py    – wczytywanie katalogu obiektów, przeliczanie współrzędnych
   camera.py     – kamera 3D: płynne loty, obracanie myszą z bezwładnością
   render.py     – szybkie rysowanie gwiazd (numpy) i poświata
-  sprites.py    – obrazki gwiazd, mgławic, gromad, planet
-  ui.py         – kursor, karta informacji, podpisy, kalibracja
+  planets.py    – planety 3D (oświetlenie, tekstury, osie) i pierścienie Saturna
+  sprites.py    – obrazki gwiazd, mgławic, gromad, Słońca
+  ui.py         – kursor, karta informacji, poświaty, podpisy, kalibracja
   picking.py    – wybór obiektu kursorem
   output.py     – odbicie obrazu pod plexi
   data/milky_way.json – katalog obiektów

@@ -25,6 +25,18 @@ TOUR = [("sgr_a", ["sgr_a_detail", "s2"]), ("crab", ["crab_pulsar", "crab_nebula
 DRAG_THRESHOLD_PX = 6  # ruch myszy z wciśniętym przyciskiem większy niż to = przeciąganie, nie klik
 
 
+def sunlit_yaw(planet_pos, side_deg: float = 40.0) -> float:
+    """Obrót kamery, przy którym Słońce (w środku układu) świeci na planetę z ukosa zza widza.
+
+    Na hologramie strona nocna jest niewidoczna, więc nie chcemy patrzeć na planetę "pod światło".
+    """
+    s = -np.asarray(planet_pos, dtype=float)
+    a = math.atan2(s[0], s[2]) + math.radians(side_deg)
+    vx, vz = math.sin(a), math.cos(a)
+    # Kierunek do widza w układzie sceny to (-sin yaw, cos yaw).
+    return math.atan2(-vx, vz)
+
+
 class Backdrop:
     """Migoczące gwiazdy tła – nieruchome względem ekranu."""
 
@@ -90,6 +102,8 @@ class App:
         self.level.selected = obj
         self.card.show(obj)
         self.cam.fly_to(target=obj.position_at(self.t), zoom=obj.zoom, offset_x=CARD_OFFSET)
+        if obj.kind == "planet":
+            self.cam.goal_yaw = sunlit_yaw(obj.position_at(self.t))
 
     def set_labels(self, on: bool) -> None:
         """Napisy pomocnicze wł./wył. (karty po kliknięciu są zawsze)."""
@@ -292,6 +306,10 @@ class App:
             if a > 0.01:
                 self.levels[key].draw_points(self.layer, self.cams[key], size, t, a)
         frame.blit(self.layer.finish(self.cfg.glow), (0, 0))
+        if not self.transition:
+            # Poświaty pod obiektami (pozycje z poprzedniej klatki – różnica niezauważalna).
+            self.auras.draw(frame, self.level.hits, self.hovered, self.selected, self.real_t,
+                            self.last_real_dt, cursor.alpha)
         for key, a in layers:
             if a > 0.01:
                 self.levels[key].draw_sprites(frame, self.cams[key], t, a)
@@ -307,8 +325,6 @@ class App:
             draw_hints(frame, self.current != HOME or self.selected is not None, cursor.alpha)
 
     def _draw_selection(self, frame: pygame.Surface, cursor: Cursor) -> None:
-        self.auras.draw(frame, self.level.hits, self.hovered, self.selected, self.real_t,
-                        self.last_real_dt, cursor.alpha)
         anchor = None
         for o, x, y, r in self.level.hits:
             if o is self.selected:

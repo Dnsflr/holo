@@ -38,6 +38,7 @@ class Camera:
         self.spin_tilt = 0.0
         self.dragging = False
         self.since_user = AUTO_RESUME_S
+        self.goal_yaw: float | None = None  # opcjonalny docelowy obrót (np. na oświetloną stronę planety)
 
     def _clamp_tilt(self, a: float) -> float:
         return min(max(a, self.tilt_min), self.tilt_max)
@@ -65,6 +66,7 @@ class Camera:
     def drag(self, dx: float, dy: float, dt: float) -> None:
         """Przeciąganie: w bok obraca wokół pionu, w górę/dół zmienia pochylenie."""
         self.dragging = True
+        self.goal_yaw = None
         self.since_user = 0.0
         d_yaw = dx * DRAG_SPEED
         d_tilt = dy * DRAG_SPEED
@@ -90,6 +92,12 @@ class Camera:
         # Zoom interpolowany w skali logarytmicznej – lot wygląda równomiernie.
         self.zoom = math.exp(math.log(self.zoom) + (math.log(self.goal_zoom) - math.log(self.zoom)) * k)
         self.offset_x += (self.goal_offset_x - self.offset_x) * k
+
+        if self.goal_yaw is not None and not self.dragging:
+            diff = (self.goal_yaw - self.yaw + math.pi) % (2 * math.pi) - math.pi
+            self.yaw += diff * k
+            if abs(diff) < 1e-3:
+                self.goal_yaw = None
 
         if self.dragging:
             # Gdy mysz stoi z wciśniętym przyciskiem, prędkość powoli spada do zera.

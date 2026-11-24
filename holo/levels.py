@@ -18,9 +18,9 @@ from .blackhole import BlackHole
 from .camera import Camera
 from .catalog import CelestialObject, solar_orbit_radius
 from .galaxy import MilkyWay
+from .planets import LOOKS, SaturnRings, make_texture, planet_axes, shade_planet, to_surface
 from .render import StarLayer
-from .sprites import (blit_scaled, cluster_sprite, nebula_sprite, planet_sprite, radial_glow,
-                      star_sprite, sun_sprite)
+from .sprites import blit_scaled, cluster_sprite, nebula_sprite, radial_glow, star_sprite, sun_sprite
 from .ui import DIM, font, scaled, text
 
 MIN_HIT_PX = 16  # najmniejszy promień "trafienia" kliknięciem
@@ -34,9 +34,7 @@ def make_sprite(o: CelestialObject) -> pygame.Surface | None:
         return nebula_sprite(160, o.color, seed)
     if o.kind == "cluster":
         return cluster_sprite(128, o.color, seed, globular="kulista" in o.type.lower())
-    if o.kind == "planet":
-        return planet_sprite(128, o.color, o.ring)
-    return None  # czarną dziurę rysuje poziom
+    return None  # planety rysuje SolarLevel w 3D, czarną dziurę i pulsar – ich sceny  # czarną dziurę rysuje poziom
 
 
 class Level:
@@ -178,6 +176,14 @@ class SolarLevel(Level):
         for o in self.objects:
             if o.kind == "star":
                 self.sprites[o.id] = sun_sprite(192, o.color)
+        # Planety 3D: tekstura i osie obrotu dla każdej planety.
+        self.textures, self.axes = {}, {}
+        for k, o in enumerate(self.objects):
+            look = LOOKS.get(o.id)
+            if o.kind == "planet" and look is not None:
+                self.textures[o.id] = make_texture(look.style, seed=100 + k)
+                self.axes[o.id] = planet_axes(look.tilt_deg)
+        self.rings = SaturnRings(rng)
         a = np.linspace(0, 2 * math.pi, 400, endpoint=False)
         self.orbits = []
         for o in self.objects:
@@ -199,6 +205,25 @@ class SolarLevel(Level):
     def sprite_diameter(self, o, cam, size, f):
         return min(min(size) * self.sprite_scale * o.size * f * cam.zoom ** 0.6, 0.45 * min(size))
 
+    def planet_radius(self, o, cam) -> float:
+        """Promień planety w jednostkach sceny (powiększony, żeby była widoczna)."""
+        return self.sprite_scale * o.size * self.view_radius * cam.zoom ** -0.4
+
+    def _planets_on_screen(self, cam, size, t):
+        """(obiekt, pozycja 3D, x, y, średnica_px, promień_świata) dla widocznych planet."""
+        out = []
+        for o in self.objects:
+            if o.id not in self.textures:
+                continue
+            pos = o.position_at(t)
+            x, y, f, vis = cam.project_one(pos, size)
+            if not vis:
+                continue
+            rw = self.planet_radius(o, cam)
+            d = 2 * rw * f * cam.scale_px(size)
+            out.append((o, pos, x, y, d, rw))
+        return out
+
     def draw_points(self, layer, cam, size, t, alpha):
         sx, sy, f, vis = cam.project(self.bg, size)
         layer.add(sx[vis], sy[vis], self.bg_col[vis] * alpha)
@@ -211,6 +236,50 @@ class SolarLevel(Level):
         sx, sy, f, vis = cam.project(belt, size)
         layer.add(sx[vis], sy[vis], self.belt_col[vis] * alpha)
 
+        planets = self._planets_on_screen(cam, size, t)
+        ring_front = None
+        for o, pos, x, y, d, rw in planets:
+            if o.id == "saturn":
+                sun_dir = -pos / max(np.linalg.norm(pos), 1e-6)
+                pts = self.rings.points(pos, rw, self.axes[o.id], t)
+                rx, ry, rc, front = self.rings.visible(pts, pos, rw, cam, size, sun_dir, self.axes[o.id], layer.k)
+                soft = d * 2.27 > 120   # z bliska gładko (warstwa gazu), z daleka wystarczą punkty
+                ring_back = (rx[~front], ry[~front], rc[~front] * alpha, soft)
+                ring_front = (rx[front], ry[front], rc[front] * alpha, soft)
+                self._add_ring(layer, *ring_back)
+        # Tarcze planet zasłaniają gwiazdy tła i orbity za nimi...
+        if alpha > 0.3:
+            for o, pos, x, y, d, rw in planets:
+                layer.clear_circle(x, y, d / 2)
+        # ...ale przednia część pierścieni Saturna jest przed planetą.
+        if ring_front is not None:
+            self._add_ring(layer, *ring_front)
+
+    @staticmethod
+    def _add_ring(layer, sx, sy, cols, soft):
+        """Pierścienie: miękko w warstwie gazu + część cząstek ostro (gładko, ale z fakturą)."""
+        gas = layer.gas
+        if gas is None or not soft:
+            layer.add(sx, sy, cols)
+            return
+        layer.add(sx[::3], sy[::3], cols[::3] * 1.2)
+        # Piksel warstwy gazu jest większy – zbiera więcej cząstek, więc ściszamy proporcjonalnie.
+        gas.add(sx, sy, cols * 0.6 * (gas.k / layer.k) ** 2)
+
     def draw_sprites(self, frame, cam, t, alpha):
-        self.draw_objects(frame, cam, t, alpha)
+        size = frame.get_size()
+        self.draw_objects(frame, cam, t, alpha)   # Słońce (sprite)
+        for o, pos, x, y, d, rw in self._planets_on_screen(cam, size, t):
+            di = int(min(max(d, 4), 0.7 * min(size)))
+            sun_dir = -pos / max(np.linalg.norm(pos), 1e-6)
+            # Kierunek Słońca i trzy osie planety – jedno przeliczenie do układu kamery.
+            vecs = np.vstack([sun_dir, *self.axes[o.id]]).astype(np.float32)
+            light, *axes_cam = cam.to_camera(vecs, relative=False)
+            light = light / max(np.linalg.norm(light), 1e-6)
+            look = LOOKS[o.id]
+            img = shade_planet(self.textures[o.id], di, light, axes_cam, look.spin * t, look.atmosphere)
+            surf = to_surface(img * alpha)
+            frame.blit(surf, (int(x - di / 2), int(y - di / 2)), special_flags=pygame.BLEND_ADD)
+            hit_r = di / 2 * (1.4 if o.id == "saturn" else 1.0)
+            self.hits.append((o, x, y, max(hit_r, MIN_HIT_PX)))
         self.draw_note(frame, alpha)

@@ -29,6 +29,22 @@ def radial_glow(d: int, color, core: float = 0.15, halo: float = 0.5,
     return array_to_surface(inten[..., None] * np.asarray(color, np.float32))
 
 
+_scaled_cache: dict[tuple[int, int], pygame.Surface] = {}
+
+
+def scaled_sprite(sprite: pygame.Surface, d: int) -> pygame.Surface:
+    """Przeskalowany sprite z pamięci podręcznej (rozmiar zaokrąglany, żeby nie skalować co klatkę)."""
+    d = max(2, int(round(d / 3) * 3)) if d > 24 else max(2, int(d))
+    key = (id(sprite), d)
+    img = _scaled_cache.get(key)
+    if img is None:
+        if len(_scaled_cache) > 400:
+            _scaled_cache.clear()
+        img = pygame.transform.smoothscale(sprite, (d, d))
+        _scaled_cache[key] = img
+    return img
+
+
 def blit_scaled(target: pygame.Surface, sprite: pygame.Surface, center, diameter: float,
                 brightness: float = 1.0) -> None:
     """Rysuje sprite addytywnie (czarne = przezroczyste) w zadanym rozmiarze i jasności."""
@@ -37,8 +53,10 @@ def blit_scaled(target: pygame.Surface, sprite: pygame.Surface, center, diameter
         return
     max_d = 2 * max(target.get_size())
     d = min(d, max_d)
-    img = pygame.transform.smoothscale(sprite, (d, d))
+    img = scaled_sprite(sprite, d)
+    d = img.get_width()
     if brightness < 0.999:
+        img = img.copy()
         k = int(255 * min(brightness, 1.0))
         img.fill((k, k, k), special_flags=pygame.BLEND_MULT)
     target.blit(img, (int(center[0] - d / 2), int(center[1] - d / 2)), special_flags=pygame.BLEND_ADD)
@@ -105,31 +123,6 @@ def cluster_sprite(d: int, color, seed: int, globular: bool = True) -> pygame.Su
     rr, _, _ = radial(d)
     rgb += (np.exp(-(rr / (0.35 if globular else 0.6)) ** 2) * (0.35 if globular else 0.12))[..., None] * col
     rgb[rr > 1] = 0
-    return array_to_surface(rgb)
-
-
-def planet_sprite(d: int, color, ring: bool = False) -> pygame.Surface:
-    """Planeta: kula oświetlona z lewej góry, z cienką atmosferą; opcjonalnie pierścień."""
-    x, y = np.mgrid[0:d, 0:d].astype(np.float32)
-    c = (d - 1) / 2
-    rad = d * (0.28 if ring else 0.42)
-    u, v = (x - c) / rad, (y - c) / rad
-    r2 = u * u + v * v
-    inside = r2 <= 1
-    z = np.sqrt(np.clip(1 - r2, 0, 1))
-    light = np.clip(-0.55 * u - 0.45 * v + 0.7 * z, 0, 1)
-    col = np.asarray(color, np.float32)
-    rgb = np.zeros((d, d, 3), np.float32)
-    rgb[inside] = (0.12 + 0.95 * light[inside])[:, None] * col
-    rim = np.exp(-((np.sqrt(r2) - 1.02) / 0.05) ** 2) * 0.5
-    rgb += rim[..., None] * (0.5 + 0.5 * col)
-    if ring:
-        # Pierścień w rzucie (elipsa), przed planetą tylko dolna połowa.
-        rv = v / 0.32
-        rr = np.sqrt(u * u + rv * rv)
-        band = ((rr > 1.35) & (rr < 2.25)).astype(np.float32) * (0.55 + 0.25 * np.sin(rr * 18))
-        visible = (~inside) | (v > 0)
-        rgb += (band * visible)[..., None] * col * 0.9
     return array_to_surface(rgb)
 
 

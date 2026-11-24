@@ -283,7 +283,7 @@ class Auras:
     zaznaczenie – stała, średnia jasność. Zmiany są płynne, bez skoków.
     """
 
-    REST, HOVER, SELECTED = 0.22, 0.85, 0.55
+    REST, HOVER, SELECTED = 0.14, 0.6, 0.28
 
     def __init__(self):
         self.level: dict[str, float] = {}
@@ -295,8 +295,11 @@ class Auras:
             import numpy as np
             from .sprites import array_to_surface, radial
             rr, _, _ = radial(160)
-            # Pierścień światła wokół obiektu – środek zostaje ciemny (nie zalewa obiektu).
-            ring = np.exp(-((rr - 0.42) / 0.16) ** 2) * 0.8 + np.exp(-(rr / 0.55) ** 2) * 0.12
+            # Miękka obwódka zaczynająca się tuż za krawędzią obiektu (rr ≈ 0,48),
+            # wewnątrz praktycznie zero – poświata nie rozjaśnia samego obiektu.
+            inner = np.exp(-((rr - 0.62) / 0.07) ** 2)
+            outer = np.exp(-((rr - 0.62) / 0.2) ** 2)
+            ring = np.where(rr < 0.62, inner, outer) * 0.7
             ring[rr > 1] = 0
             self.sprite = array_to_surface(np.repeat(ring[..., None], 3, axis=2))
         return self.sprite
@@ -320,11 +323,13 @@ class Auras:
             hv += ((1.0 if is_hover else 0.0) - hv) * k
             self.hover_amt[o.id] = hv
 
-            d = int(min(r * 2 * (2.3 + 0.7 * hv), h * 0.5))
+            d = int(min(r * (3.6 + 0.6 * hv), h * 0.6))
             if d < 6 or cur < 0.02:
                 continue
             col = getattr(o, "color", (1.0, 1.0, 1.0))
             tint = tuple(int(255 * min(1.0, (0.55 + 0.45 * c) * cur)) for c in col)
-            img = pygame.transform.smoothscale(self._sprite(), (d, d))
+            from .sprites import scaled_sprite
+            img = scaled_sprite(self._sprite(), d).copy()
+            d = img.get_width()
             img.fill(tint, special_flags=pygame.BLEND_MULT)
             frame.blit(img, (int(x - d / 2), int(y - d / 2)), special_flags=pygame.BLEND_ADD)
